@@ -4,7 +4,7 @@ This document outlines the coding standards for the PyGVAS project. Adhering to 
 
 ## General Formatting
 
-*   **Line Length**: Maximum line length of 80 characters.
+*   **Line Length**: Maximum line length of 120 characters.
 *   **Blank Lines**: A maximum of one blank line should be used for separation, except where specified otherwise for Python code.
 *   **Comments**: Do not add comments unless specifically requested.
 *   **Documentation**: Use a third-person voice and describe what the code does, not what the developer is expected to do.
@@ -19,7 +19,9 @@ This document outlines the coding standards for the PyGVAS project. Adhering to 
 ### Code Structure
 
 *   **Blank Lines**: Use two blank lines between file-level declarations (e.g., classes, functions). An exception is for grouped variable declarations, which should not have blank lines between them.
-*   **Comprehensions**: Use list/dictionary comprehensions or generator expressions for creating sequences where possible. When a comprehension is split across multiple lines, each `for` and `if` clause must be on its own line.
+*   **Comprehensions and Generators**: Use list/dictionary comprehensions or generator expressions for creating sequences where possible. When a comprehension is split across multiple lines, each `for` and `if` clause must be on its own line. Avoid expanding nested comprehensions or generator expressions unless necessary, particularly generators which offer memory efficiency benefits.
+*   **Iterator Optimisation Patterns**: Prefer built-in functions and `itertools` over equivalent generator expressions when they provide the same functionality. Use `iter()` for identity operations, `map()` for single function applications, and direct constructors like `list()`, `tuple()`, `dict()` for object creation.
+*   **Function Preferences**: Prefer `operator` module functions over equivalent lambda functions for common operations, as they are more efficient and clearer in intent.
 
 ### Data Structures and Formatting
 
@@ -30,18 +32,21 @@ This document outlines the coding standards for the PyGVAS project. Adhering to 
 
 ### Class Design
 
-*   **Class Organisation**: Classes must follow this exact order:
-    1. `__slots__` declaration (always at the top)
-    2. Class variables
-    3. Type hints for instance variables
-    4. Static methods
-    5. Class methods
-    6. Properties (using `@property` decorator and associated setters/deleters)
-    7. Instance methods
+*   **Class Organisation**: Class members must be organised by visibility first (public, then protected), and then by type. The exact order is:
+    1.  `__slots__` declaration (always at the top)
+    2.  Class variables
+    3.  Type hints for instance variables
+    4.  Public static methods
+    5.  Public class methods
+    6.  Public properties
+    7.  Public instance methods
+    8.  Protected static methods
+    9.  Protected class methods
+    10. Protected properties
+    11. Protected instance methods
 *   **Member Ordering Rules**: All class members follow consistent ordering principles:
-    *   **Visibility Order**: Public members first, then protected members (prefixed with `_`)
-    *   **Alphabetical Sorting**: Within each visibility level, sort members alphabetically
-    *   **Built-in Priority**: For methods, built-in method overrides come before custom methods within each method type
+    *   **Alphabetical Sorting**: Within each group (e.g., public properties), sort members alphabetically.
+    *   **Built-in Priority**: For methods, built-in method overrides come before custom methods within each method type.
 *   **Assignment Type Analysis**: Before rearranging code, always analyse the type of assignment to distinguish between variable declarations, function assignments, and type assignments. Functions assigned to identifiers should be treated as function definitions and placed in the appropriate method section. Type assignments should be placed in the class variables section.
 *   **`__slots__`**:
     *   Always declare `__slots__` to predefine instance variables.
@@ -54,6 +59,7 @@ This document outlines the coding standards for the PyGVAS project. Adhering to 
 *   **Private Methods**: Single underscore prefix (`_method_name`) indicates methods intended for internal use within the class or module.
 *   **Return Types**: Return types must be specified in method signatures, including `-> None` for methods that don't return a value.
 *   **Method Parameters**: Type hints are required for all parameters.
+*   **Decorator Order**: When using multiple decorators, `abstractmethod` must be the last one applied (closest to the `def` statement) to ensure it functions correctly.
 
 ### Naming Conventions
 
@@ -210,6 +216,40 @@ for item in items:
         filtered_items.append(item.process())
 ```
 
+### Generator and Iterator Optimisation
+
+**Identity generators should use iter:**
+
+```python
+# PREFERRED
+items_iter = iter(items)
+
+# AVOID
+items_iter = (item for item in items)
+```
+
+**Function mapping should use map:**
+
+```python
+# PREFERRED
+processed = map(str.upper, strings)
+
+# AVOID
+processed = (string.upper() for string in strings)
+```
+
+**Object construction from identity comprehensions:**
+
+```python
+# PREFERRED
+items_list = list(items)
+items_tuple = tuple(items)
+
+# AVOID
+items_list = [item for item in items]
+items_tuple = tuple(item for item in items)
+```
+
 ## Git Workflow
 
 *   **Commit Message Review**: Always review and verify the commit message after committing to ensure it accurately describes the changes and follows the project's commit message conventions.
@@ -220,5 +260,5 @@ for item in items:
     4. Blank line
     5. Footer (sign-off and co-authorship information)
 *   **Commit Signing**: Commits must be signed off via CLI using `git commit -s`.
-*   **Commit Messages**: Document, language-related, or project configuration changes should be avoided in commit messages unless no code changes have been made. Focus on functional and structural changes.
+*   **Commit Messages**: Document, language-related, or project configuration changes should be avoided in commit messages unless no code changes have been made. Focus on functional and structural changes. Avoid mentioning detailed implementation changes like variable renaming or minor refactoring details.
 *   **Co-authorship**: GitHub Copilot should be credited as a co-author using `Co-authored-by: GitHub Copilot <github-copilot[bot]@users.noreply.github.com>`.

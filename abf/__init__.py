@@ -1,5 +1,31 @@
-from ._headers import GVASHeader
+from ._definitions import (
+    GVASBodyLimbHealth,
+    GVASCharacterSave,
+    GVASCharacterSkill,
+    GVASCharacterStatsSave,
+    GVASCoreCompendiumEntryRowHandle,
+    GVASCoreCompendiumKillCount,
+    GVASCoreDataTableRowHandle,
+    GVASCoreDynamicProperty,
+    GVASCoreDynamicPropertyType,
+    GVASInventoryData,
+    GVASInventorySlot,
+    GVASLiquidType,
+)
+from ._headers import ABFPlayerSaveHeader
 
 __all__ = [
-    "GVASHeader",
+    "ABFPlayerSaveHeader",
+    "GVASBodyLimbHealth",
+    "GVASCharacterSave",
+    "GVASCharacterSkill",
+    "GVASCharacterStatsSave",
+    "GVASCoreCompendiumEntryRowHandle",
+    "GVASCoreCompendiumKillCount",
+    "GVASCoreDataTableRowHandle",
+    "GVASCoreDynamicProperty",
+    "GVASCoreDynamicPropertyType",
+    "GVASInventoryData",
+    "GVASInventorySlot",
+    "GVASLiquidType",
 ]
