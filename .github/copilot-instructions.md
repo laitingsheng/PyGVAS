@@ -220,5 +220,5 @@ for item in items:
     4. Blank line
     5. Footer (sign-off and co-authorship information)
 *   **Commit Signing**: Commits must be signed off via CLI using `git commit -s`.
-*   **Commit Messages**: Document or language-related changes should be avoided in commit messages unless no code changes have been made. Focus on functional and structural changes.
+*   **Commit Messages**: Document, language-related, or project configuration changes should be avoided in commit messages unless no code changes have been made. Focus on functional and structural changes.
 *   **Co-authorship**: GitHub Copilot should be credited as a co-author using `Co-authored-by: GitHub Copilot <github-copilot[bot]@users.noreply.github.com>`.

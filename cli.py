@@ -1,109 +1,8 @@
-from abc import abstractmethod
 import json
-from re import L
-import struct
 import sys
-import uuid
 
-
-class GVASCursor:
-    __slots__ = (
-        "_data",
-        "offset",
-    )
-
-    def __init__(self, data: bytes, offset: int) -> None:
-        self._data = data
-        self.offset = offset
-
-    def _advance(self, count: int) -> None:
-        if any(self._data[self.offset : self.offset + count]):
-            raise ValueError("Advancing cursor with non-zero bytes")
-        self.offset += count
-
-    def _read_uint8(self, count: int) -> list[int]:
-        ret = list(map(int, struct.unpack_from(f"<{count}B", self._data, self.offset)))
-        self.offset += count
-        return ret
-
-    def _read_uint16(self, count: int) -> list[int]:
-        ret = list(map(int, struct.unpack_from(f"<{count}H", self._data, self.offset)))
-        self.offset += 2 * count
-        return ret
-
-    def _read_uint32(self, count: int) -> list[int]:
-        ret = list(map(int, struct.unpack_from(f"<{count}L", self._data, self.offset)))
-        self.offset += 4 * count
-        return ret
-
-    def _read_int32(self, count: int) -> list[int]:
-        ret = list(map(int, struct.unpack_from(f"<{count}l", self._data, self.offset)))
-        self.offset += 4 * count
-        return ret
-
-    def _read_float32(self, count: int) -> list[float]:
-        ret = list(map(float, struct.unpack_from(f"<{count}f", self._data, self.offset)))
-        self.offset += 4 * count
-        return ret
-
-    def _read_float64(self, count: int) -> list[float]:
-        ret = list(map(float, struct.unpack_from(f"<{count}d", self._data, self.offset)))
-        self.offset += 8 * count
-        return ret
-
-    def _read_uuid128(self) -> uuid.UUID:
-        ret = uuid.UUID(bytes_le=self._data[self.offset : self.offset + 16])
-        self.offset += 16
-        return ret
-
-    def _read_string(self) -> str:
-        length = struct.unpack_from("<1L", self._data, self.offset)[0]
-        self.offset += 4
-        if length < 1:
-            return ""
-        ret = self._data[self.offset : self.offset + length - 1].decode("utf-8")
-        self.offset += length
-        return ret
-
-
-class GVASHeader(GVASCursor):
-    __slots__ = (
-        "_save_version",
-        "_ue_version",
-        "_branch",
-        "_customs_version",
-        "_customs",
-    )
-
-    def __init__(self, data: bytes) -> None:
-        if data[:4] != b"GVAS":
-            raise ValueError("Invalid GVAS header")
-
-        super(GVASHeader, self).__init__(data, 4)
-
-        self._save_version = self._read_uint32(3)
-        self._ue_version = self._read_uint16(5)
-        self._branch = self._read_string()
-
-        self._customs_version, customs_count = self._read_uint32(2)
-        self._customs: dict[uuid.UUID, int] = {}
-        for _ in range(customs_count):
-            custom_id = self._read_uuid128()
-            custom_version = self._read_uint32(1)[0]
-            self._customs[custom_id] = custom_version
-
-    def json(self) -> object:
-        return {
-            "save_version": ".".join(map(str, self._save_version)),
-            "ue_version": ".".join(map(str, self._ue_version)) + self._branch,
-            "customs": {
-                "version": self._customs_version,
-                "entries": {
-                    str(k): v
-                    for k, v in self._customs.items()
-                },
-            },
-        }
+from abf import GVASHeader
+from gvas.utils import GVASCursor
 
 
 class GVASBody(GVASCursor):
@@ -527,8 +426,8 @@ def _main(entry: str, filename: str) -> None:
     with open(filename, "rb") as f:
         data = f.read()
 
-    header = GVASHeader(data)
-    body = GVASBody(data, header.offset)
+    header, offset = GVASHeader.parse(data, 0)
+    body = GVASBody(data, offset)
 
     with open(f"gvas.json", "w", encoding="utf-8") as f:
         json.dump({
