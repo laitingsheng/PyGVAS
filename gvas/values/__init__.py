@@ -1,10 +1,5 @@
 from ._base import GVASByteValue, GVASEnumValue, GVASStructValue, GVASTextValue
-from ._structs import (
-    GVASCoreGameplayTagContainer,
-    GVASCoreRotator,
-    GVASCoreVector,
-    GVASCustomStructValue,
-)
+from ._structs import GVASCoreGameplayTagContainer, GVASCoreRotator, GVASCoreVector, GVASCustomStructValue
 from ._texts import GVASTextStringTable
 
 __all__ = [

@@ -1,5 +1,5 @@
 import struct
-from typing import ClassVar, Self, final, override
+from typing import Any, ClassVar, Self, final, override
 
 from ..utils import read_string
 from ..values import GVASEnumValue
@@ -7,7 +7,7 @@ from ._base import GVASProperty
 
 
 def _parse_header(data: bytes, offset: int) -> tuple[type[GVASEnumValue], int]:
-    category = struct.unpack_from("<L", data, offset)[0]
+    category = struct.unpack_from("<I", data, offset)[0]
     if category != 2:
         raise ValueError(f"Invalid category at {offset}")
     offset += 4
@@ -15,7 +15,7 @@ def _parse_header(data: bytes, offset: int) -> tuple[type[GVASEnumValue], int]:
     if not name:
         raise ValueError(f"Invalid name at {offset}")
     offset += bytes_read
-    index = struct.unpack_from("<L", data, offset)[0]
+    index = struct.unpack_from("<I", data, offset)[0]
     if index != 1:
         raise ValueError(f"Invalid index at {offset}")
     offset += 4
@@ -24,15 +24,13 @@ def _parse_header(data: bytes, offset: int) -> tuple[type[GVASEnumValue], int]:
         raise ValueError(f"Invalid blueprint at {offset}")
     offset += bytes_read
     value_class = GVASEnumValue.get_class(blueprint, name)
-    if struct.unpack_from("<L", data, offset)[0] != 0:
+    if struct.unpack_from("<I", data, offset)[0] != 0:
         raise ValueError(f"Invalid flag at {offset}")
     return value_class, offset + 4
 
 
 class GVASEnumProperty(GVASProperty):
-    __slots__ = (
-        "_value",
-    )
+    __slots__ = ("_value",)
 
     _ACCEPT: ClassVar[str] = "EnumProperty"
 
@@ -46,3 +44,8 @@ class GVASEnumProperty(GVASProperty):
         self = cls.__new__(cls)
         self._value, offset = value_class.parse(data, offset)
         return self, offset
+
+    @final
+    @override
+    def to_json(self) -> dict[str, Any]:
+        return {"type": self._ACCEPT, "value": self._value.to_json()}

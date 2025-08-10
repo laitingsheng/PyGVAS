@@ -1,0 +1,14 @@
+[project]
+name = "PyGVAS"
+version = "0.0.0"
+requires-python = ">=3.13"
+
+[tool.ruff]
+indent-width = 4
+line-length = 120
+
+[tool.ruff.format]
+indent-style = "space"
+line-ending = "lf"
+quote-style = "double"
+skip-magic-trailing-comma = true

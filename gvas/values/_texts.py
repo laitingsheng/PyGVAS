@@ -1,14 +1,11 @@
-from typing import ClassVar, Self, final
+from typing import Any, ClassVar, Self, final, override
 
 from ..utils import read_string
 from ._base import GVASTextValue
 
 
 class GVASTextStringTable(GVASTextValue):
-    __slots__ = (
-        "_reference",
-        "_table",
-    )
+    __slots__ = ("_reference", "_table")
 
     _TYPE: ClassVar[int] = 11
 
@@ -27,3 +24,8 @@ class GVASTextStringTable(GVASTextValue):
         offset += bytes_read
 
         return self, offset
+
+    @final
+    @override
+    def to_json(self) -> dict[str, Any]:
+        return {"type": self._TYPE, "table": self._table, "reference": self._reference}

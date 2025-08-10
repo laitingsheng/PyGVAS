@@ -1,14 +1,12 @@
 import struct
-from typing import ClassVar, Self, final, override
+from typing import Any, ClassVar, Self, final, override
 
 from ..values._base import GVASTextValue
 from ._base import GVASProperty
 
 
 class GVASTextProperty(GVASProperty):
-    __slots__ = (
-        "_value",
-    )
+    __slots__ = ("_value",)
 
     _ACCEPT: ClassVar[str] = "TextProperty"
 
@@ -18,7 +16,7 @@ class GVASTextProperty(GVASProperty):
     @override
     @classmethod
     def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
-        category, size, unit_width, flag, type_id = struct.unpack_from("<LLBLB", data, offset)
+        category, size, unit_width, flag, type_id = struct.unpack_from("<IIBIB", data, offset)
         if category != 0:
             raise ValueError(f"Invalid category at {offset}")
         offset += 4
@@ -38,3 +36,8 @@ class GVASTextProperty(GVASProperty):
         if offset != expected_offset:
             raise ValueError(f"Text size mismatch at {offset}")
         return self, offset
+
+    @final
+    @override
+    def to_json(self) -> dict[str, Any]:
+        return {"type": self._ACCEPT, "value": self._value.to_json()}

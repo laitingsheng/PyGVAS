@@ -1,5 +1,5 @@
 import struct
-from typing import ClassVar, Self, Sequence, final, override
+from typing import Any, ClassVar, Self, Sequence, final, override
 
 from ..utils import read_string
 from ..values import GVASStructValue
@@ -7,7 +7,7 @@ from ._base import GVASProperty, GVASPropertyArray
 
 
 def _parse_header(data: bytes, offset: int) -> tuple[type[GVASStructValue], int]:
-    category = struct.unpack_from("<L", data, offset)[0]
+    category = struct.unpack_from("<I", data, offset)[0]
     if category == 1:
         singleton = True
     elif category == 2:
@@ -19,7 +19,7 @@ def _parse_header(data: bytes, offset: int) -> tuple[type[GVASStructValue], int]
     if not name:
         raise ValueError(f"Invalid name at {offset}")
     offset += bytes_read
-    index = struct.unpack_from("<L", data, offset)[0]
+    index = struct.unpack_from("<I", data, offset)[0]
     if index != 1:
         raise ValueError(f"Invalid index at {offset}")
     offset += 4
@@ -30,7 +30,7 @@ def _parse_header(data: bytes, offset: int) -> tuple[type[GVASStructValue], int]
     if singleton:
         guid = ""
     else:
-        index = struct.unpack_from("<L", data, offset)[0]
+        index = struct.unpack_from("<I", data, offset)[0]
         if index != 0:
             raise ValueError(f"Invalid index at {offset}")
         offset += 4
@@ -45,9 +45,7 @@ def _parse_header(data: bytes, offset: int) -> tuple[type[GVASStructValue], int]
 
 
 class GVASStructProperty(GVASProperty):
-    __slots__ = (
-        "_value",
-    )
+    __slots__ = ("_value",)
 
     _ACCEPT: ClassVar[str] = "StructProperty"
 
@@ -58,7 +56,7 @@ class GVASStructProperty(GVASProperty):
     @classmethod
     def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
         value_class, offset = _parse_header(data, offset)
-        flag, size, unit_width = struct.unpack_from("<LLB", data, offset)
+        flag, size, unit_width = struct.unpack_from("<IIB", data, offset)
         if flag != 0:
             raise ValueError(f"Invalid flag at {offset}")
         offset += 9
@@ -69,11 +67,14 @@ class GVASStructProperty(GVASProperty):
             raise ValueError(f"Invalid offset at {offset}")
         return self, offset
 
+    @final
+    @override
+    def to_json(self) -> Any:
+        return {"type": self._ACCEPT, "value": self._value.to_json()}
+
 
 class GVASStructPropertyArray(GVASPropertyArray):
-    __slots__ = (
-        "_value",
-    )
+    __slots__ = ("_value",)
 
     _ACCEPT: ClassVar[str] = "StructProperty"
 
@@ -84,7 +85,7 @@ class GVASStructPropertyArray(GVASPropertyArray):
     @classmethod
     def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
         value_class, offset = _parse_header(data, offset)
-        flag, size, unit_width = struct.unpack_from("<LLB", data, offset)
+        flag, size, unit_width = struct.unpack_from("<IIB", data, offset)
         if flag != 0:
             raise ValueError(f"Invalid flag at {offset}")
         offset += 9
@@ -94,3 +95,8 @@ class GVASStructPropertyArray(GVASPropertyArray):
         if offset != expected_offset:
             raise ValueError(f"Invalid offset at {offset}")
         return self, offset
+
+    @final
+    @override
+    def to_json(self) -> Any:
+        return {"type": self._ACCEPT, "value": [item.to_json() for item in self._value]}

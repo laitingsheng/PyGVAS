@@ -4,32 +4,29 @@ from typing import Any, ClassVar, Self, final, override
 from ._base import GVASProperty, GVASPropertyArray
 
 
-class GVASBoolProperty(GVASProperty):
+class GVASShortProperty(GVASProperty):
     __slots__ = ("_value",)
 
-    _ACCEPT: ClassVar[str] = "BoolProperty"
+    _ACCEPT: ClassVar[str] = "ShortProperty"
 
-    _value: bool
+    _value: int
 
     @final
     @override
     @classmethod
     def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
-        category, size, value = struct.unpack_from("<IIB", data, offset)
+        category, size, unit_width, value = struct.unpack_from("<IIBh", data, offset)
         if category != 0:
             raise ValueError(f"Invalid category at {offset}")
         offset += 4
-        if size != 0:
+        if size != 2:
             raise ValueError(f"Invalid size at {offset}")
         offset += 4
+        if unit_width != 0:
+            raise ValueError(f"Invalid unit width at {offset}")
         self = cls.__new__(cls)
-        if value == 0:
-            self._value = False
-        elif value == 0x10:
-            self._value = True
-        else:
-            raise ValueError(f"Invalid value at {offset}")
-        return self, offset + 1
+        self._value = value
+        return self, offset + 3
 
     @final
     @override
@@ -37,12 +34,12 @@ class GVASBoolProperty(GVASProperty):
         return {"type": self._ACCEPT, "value": self._value}
 
 
-class GVASBoolPropertyArray(GVASPropertyArray):
+class GVASShortPropertyArray(GVASPropertyArray):
     __slots__ = ("_value",)
 
-    _ACCEPT: ClassVar[str] = "BoolProperty"
+    _ACCEPT: ClassVar[str] = "ShortProperty"
 
-    _value: list[bool]
+    _value: list[int]
 
     @final
     @override
@@ -52,20 +49,15 @@ class GVASBoolPropertyArray(GVASPropertyArray):
         if category != 0:
             raise ValueError(f"Invalid category at {offset}")
         offset += 4
-        if size != count + 4:
+        if size != count * 2 + 4:
             raise ValueError(f"Invalid size at {offset}")
         offset += 4
         if unit_width != 0:
             raise ValueError(f"Invalid unit width at {offset}")
         offset += 5
         self = cls.__new__(cls)
-        self._value = [False] * count
-        for i, value in enumerate(struct.unpack_from(f"<{count}B", data, offset)):
-            if value == 0x1:
-                self._value[i] = True
-            elif value != 0:
-                raise ValueError(f"Invalid value at {offset + i}")
-        return self, offset + count
+        self._value = list(struct.unpack_from(f"<{count}h", data, offset))
+        return self, offset + count * 2
 
     @final
     @override

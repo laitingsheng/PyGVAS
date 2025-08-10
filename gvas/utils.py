@@ -3,7 +3,7 @@ import struct
 
 
 def read_string(data: bytes, offset: int) -> tuple[str, int]:
-    length = struct.unpack_from("<L", data, offset)[0]
+    length = struct.unpack_from("<I", data, offset)[0]
     if length < 1:
         return "", 4
     string_value = struct.unpack_from(f"<{length - 1}sx", data, offset + 4)[0].decode("utf-8")
@@ -11,17 +11,10 @@ def read_string(data: bytes, offset: int) -> tuple[str, int]:
 
 
 def write_string(first: str, *rest: str) -> bytes:
-    formats, args = zip(*(
-        (
-            f"L{len(encoded)}sx" if encoded else "L",
-            (len(encoded) + 1, encoded) if encoded else (0,),
+    formats, args = zip(
+        *(
+            (f"I{len(encoded)}sx" if encoded else "I", (len(encoded) + 1, encoded) if encoded else (0,))
+            for encoded in (value.encode("utf-8") for value in itertools.chain((first,), rest))
         )
-        for encoded in (
-            value.encode("utf-8")
-            for value in itertools.chain((first,), rest)
-        )
-    ))
-    return struct.pack(
-        "<" + "".join(formats),
-        *itertools.chain.from_iterable(args),
     )
+    return struct.pack("<" + "".join(formats), *itertools.chain.from_iterable(args))

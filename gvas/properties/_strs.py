@@ -1,14 +1,12 @@
 import struct
-from typing import ClassVar, Self, final, override
+from typing import Any, ClassVar, Self, final, override
 
 from ..utils import read_string
 from ._base import GVASProperty, GVASPropertyArray
 
 
 class GVASStrProperty(GVASProperty):
-    __slots__ = (
-        "_value",
-    )
+    __slots__ = ("_value",)
 
     _ACCEPT: ClassVar[str] = "StrProperty"
 
@@ -18,7 +16,7 @@ class GVASStrProperty(GVASProperty):
     @override
     @classmethod
     def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
-        category, size, unit_width = struct.unpack_from("<LLB", data, offset)
+        category, size, unit_width = struct.unpack_from("<IIB", data, offset)
         if category != 0:
             raise ValueError(f"Invalid category at {offset}")
         offset += 4
@@ -34,11 +32,14 @@ class GVASStrProperty(GVASProperty):
             raise ValueError(f"Invalid string at {offset}")
         return self, offset + bytes_read
 
+    @final
+    @override
+    def to_json(self) -> dict[str, Any]:
+        return {"type": self._ACCEPT, "value": self._value}
+
 
 class GVASStrPropertyArray(GVASPropertyArray):
-    __slots__ = (
-        "_value",
-    )
+    __slots__ = ("_value",)
 
     _ACCEPT: ClassVar[str] = "StrProperty"
 
@@ -48,7 +49,7 @@ class GVASStrPropertyArray(GVASPropertyArray):
     @override
     @classmethod
     def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
-        category, size, unit_width, count = struct.unpack_from("<LLBL", data, offset)
+        category, size, unit_width, count = struct.unpack_from("<IIBI", data, offset)
         if category != 0:
             raise ValueError(f"Invalid category at {offset}")
         offset += 4
@@ -69,3 +70,8 @@ class GVASStrPropertyArray(GVASPropertyArray):
         if offset != expected_offset:
             raise ValueError(f"Invalid string array at {offset}")
         return self, offset
+
+    @final
+    @override
+    def to_json(self) -> dict[str, Any]:
+        return {"type": self._ACCEPT, "value": self._value}

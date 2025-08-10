@@ -2,15 +2,13 @@ from __future__ import annotations
 
 import struct
 from abc import abstractmethod
-from typing import ClassVar, Final, Self, Sequence, final
+from typing import Any, ClassVar, Final, Self, Sequence, final
 
 from ..utils import read_string
 
 
 class GVASByteValue:
-    __slots__ = (
-        "_value",
-    )
+    __slots__ = ("_value",)
 
     _BLUEPRINT: ClassVar[str] = ""
     _NAME: ClassVar[str] = ""
@@ -35,12 +33,13 @@ class GVASByteValue:
     @final
     @classmethod
     def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
-        size, unit_width = struct.unpack_from("<LB", data, offset)
-        if unit_width != 0:
-            raise ValueError(f"Invalid unit width at {offset}")
+        size, unit_width = struct.unpack_from("<IB", data, offset)
         if size < 4:
             raise ValueError(f"Invalid size at {offset}")
-        offset += 5
+        offset += 4
+        if unit_width != 0:
+            raise ValueError(f"Invalid unit width at {offset}")
+        offset += 1
         self = cls.__new__(cls)
         self._value, bytes_read = read_string(data, offset)
         if bytes_read != size:
@@ -51,11 +50,13 @@ class GVASByteValue:
     def __init__(self) -> None:
         raise NotImplementedError(self.__class__.__name__)
 
+    @final
+    def to_json(self) -> dict[str, Any]:
+        return {"name": self._NAME, "blueprint": self._BLUEPRINT, "value": self._value}
+
 
 class GVASEnumValue:
-    __slots__ = (
-        "_value",
-    )
+    __slots__ = ("_value",)
 
     _BLUEPRINT: ClassVar[str] = ""
     _NAME: ClassVar[str] = ""
@@ -84,16 +85,16 @@ class GVASEnumValue:
         if type_name != "ByteProperty":
             raise ValueError(f"Invalid type name at {offset}")
         offset += bytes_read
-        category = struct.unpack_from("<L", data, offset)[0]
+        category, size, unit_width = struct.unpack_from("<IIB", data, offset)
         if category != 0:
             raise ValueError(f"Invalid category at {offset}")
         offset += 4
-        size, unit_width = struct.unpack_from("<LB", data, offset)
-        if unit_width != 0:
-            raise ValueError(f"Invalid unit width at {offset}")
         if size < 4:
             raise ValueError(f"Invalid size at {offset}")
-        offset += 5
+        offset += 4
+        if unit_width != 0:
+            raise ValueError(f"Invalid unit width at {offset}")
+        offset += 1
         self = cls.__new__(cls)
         self._value, bytes_read = read_string(data, offset)
         if bytes_read != size:
@@ -103,6 +104,10 @@ class GVASEnumValue:
     @final
     def __init__(self) -> None:
         raise NotImplementedError(self.__class__.__name__)
+
+    @final
+    def to_json(self) -> dict[str, Any]:
+        return {"name": self._NAME, "blueprint": self._BLUEPRINT, "value": self._value}
 
 
 class GVASStructValue:
@@ -123,14 +128,14 @@ class GVASStructValue:
         cls._REGISTRY[fullpath] = cls
 
     @final
-    @classmethod
-    def match_guid(cls, guid: str) -> bool:
-        return cls._GUID == guid
-
-    @final
     @staticmethod
     def get_class(blueprint: str, name: str) -> type[GVASStructValue]:
         return GVASStructValue._REGISTRY[f"{blueprint}/{name}"]
+
+    @final
+    @classmethod
+    def match_guid(cls, guid: str) -> bool:
+        return cls._GUID == guid
 
     @classmethod
     @abstractmethod
@@ -144,6 +149,10 @@ class GVASStructValue:
 
     @final
     def __init__(self) -> None:
+        raise NotImplementedError(self.__class__.__name__)
+
+    @abstractmethod
+    def to_json(self) -> Any:
         raise NotImplementedError(self.__class__.__name__)
 
 
@@ -173,4 +182,8 @@ class GVASTextValue:
 
     @final
     def __init__(self) -> None:
+        raise NotImplementedError(self.__class__.__name__)
+
+    @abstractmethod
+    def to_json(self) -> Any:
         raise NotImplementedError(self.__class__.__name__)

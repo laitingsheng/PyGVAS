@@ -12,10 +12,11 @@ from ._definitions import (
     GVASInventorySlot,
     GVASLiquidType,
 )
-from ._headers import ABFPlayerSaveHeader
+from ._headers import ABFPlayerSaveHeader, ABFWorldSaveHeader
 
 __all__ = [
     "ABFPlayerSaveHeader",
+    "ABFWorldSaveHeader",
     "GVASBodyLimbHealth",
     "GVASCharacterSave",
     "GVASCharacterSkill",

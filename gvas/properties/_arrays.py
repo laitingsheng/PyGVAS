@@ -1,13 +1,11 @@
 import struct
-from typing import ClassVar, Self, final, override
+from typing import Any, ClassVar, Self, final, override
 
 from ._base import GVASProperty, GVASPropertyArray
 
 
 class GVASArrayProperty(GVASProperty):
-    __slots__ = (
-        "_value",
-    )
+    __slots__ = ("_value",)
 
     _ACCEPT: ClassVar[str] = "ArrayProperty"
 
@@ -23,3 +21,8 @@ class GVASArrayProperty(GVASProperty):
         self = cls.__new__(cls)
         self._value, offset = property_class.parse(data, offset)
         return self, offset
+
+    @final
+    @override
+    def to_json(self) -> dict[str, Any]:
+        return {"type": self._ACCEPT, "value": self._value.to_json()}

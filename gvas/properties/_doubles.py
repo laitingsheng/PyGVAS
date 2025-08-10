@@ -1,13 +1,11 @@
 import struct
-from typing import ClassVar, Self, final, override
+from typing import Any, ClassVar, Self, final, override
 
-from ._base import GVASProperty
+from ._base import GVASProperty, GVASPropertyArray
 
 
 class GVASDoubleProperty(GVASProperty):
-    __slots__ = (
-        "_value",
-    )
+    __slots__ = ("_value",)
 
     _ACCEPT: ClassVar[str] = "DoubleProperty"
 
@@ -17,7 +15,7 @@ class GVASDoubleProperty(GVASProperty):
     @override
     @classmethod
     def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
-        category, size, unit_width, value = struct.unpack_from("<LLBd", data, offset)
+        category, size, unit_width, value = struct.unpack_from("<IIBd", data, offset)
         if category != 0:
             raise ValueError(f"Invalid category at {offset}")
         offset += 4
@@ -26,7 +24,42 @@ class GVASDoubleProperty(GVASProperty):
         offset += 4
         if unit_width != 0:
             raise ValueError(f"Invalid unit width at {offset}")
-        offset += 1
         self = cls.__new__(cls)
         self._value = value
-        return self, offset + 8
+        return self, offset + 9
+
+    @final
+    @override
+    def to_json(self) -> dict[str, Any]:
+        return {"type": self._ACCEPT, "value": self._value}
+
+
+class GVASDoublePropertyArray(GVASPropertyArray):
+    __slots__ = ("_value",)
+
+    _ACCEPT: ClassVar[str] = "DoubleProperty"
+
+    _value: list[float]
+
+    @final
+    @override
+    @classmethod
+    def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
+        category, size, unit_width, count = struct.unpack_from("<IIBI", data, offset)
+        if category != 0:
+            raise ValueError(f"Invalid category at {offset}")
+        offset += 4
+        if size != count * 8 + 4:
+            raise ValueError(f"Invalid size at {offset}")
+        offset += 4
+        if unit_width != 0:
+            raise ValueError(f"Invalid unit width at {offset}")
+        offset += 5
+        self = cls.__new__(cls)
+        self._value = list(struct.unpack_from(f"<{count}d", data, offset))
+        return self, offset + count * 8
+
+    @final
+    @override
+    def to_json(self) -> dict[str, Any]:
+        return {"type": self._ACCEPT, "value": self._value}

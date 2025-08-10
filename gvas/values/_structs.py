@@ -1,6 +1,6 @@
 import itertools
 import struct
-from typing import ClassVar, Self, Sequence
+from typing import Any, ClassVar, Self, Sequence, final, override
 
 from ..properties import GVASProperty
 from ..utils import read_string
@@ -8,10 +8,7 @@ from ._base import GVASStructValue
 
 
 class GVASCoreVector(GVASStructValue):
-    __slots__ = (
-        "_double",
-        "_value",
-    )
+    __slots__ = ("_double", "_value")
 
     _NAME: ClassVar[str] = "Vector"
     _BLUEPRINT: ClassVar[str] = "/Script/CoreUObject"
@@ -36,6 +33,17 @@ class GVASCoreVector(GVASStructValue):
         self._value = x, y, z
         return self, offset
 
+    @final
+    @override
+    def to_json(self) -> dict[str, Any]:
+        x, y, z = self._value
+        return {
+            "name": self._NAME,
+            "blueprint": self._BLUEPRINT,
+            "double": self._double,
+            "value": {"x": x, "y": y, "z": z},
+        }
+
 
 class GVASCoreRotator(GVASCoreVector):
     __slots__ = ()
@@ -44,9 +52,7 @@ class GVASCoreRotator(GVASCoreVector):
 
 
 class GVASCoreGameplayTagContainer(GVASStructValue):
-    __slots__ = (
-        "_tags",
-    )
+    __slots__ = ("_tags",)
 
     _NAME: ClassVar[str] = "GameplayTagContainer"
     _BLUEPRINT: ClassVar[str] = "/Script/GameplayTags"
@@ -57,24 +63,27 @@ class GVASCoreGameplayTagContainer(GVASStructValue):
     def parse(cls, unit_width: int, data: bytes, offset: int) -> tuple[Self, int]:
         if unit_width != 8:
             raise ValueError(f"Invalid unit width at {offset}")
-        count = struct.unpack_from("<L", data, offset)[0]
+        count = struct.unpack_from("<I", data, offset)[0]
         offset += 4
         self = cls.__new__(cls)
         self._tags = [
             (instance, index)
-            for instance, index in itertools.batched(
-                struct.unpack_from(f"<{count * 2}L", data, offset),
-                2,
-            )
+            for instance, index in itertools.batched(struct.unpack_from(f"<{count * 2}I", data, offset), 2)
         ]
-        offset += count * 8
-        return self, offset
+        return self, offset + count * 8
+
+    @final
+    @override
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "name": self._NAME,
+            "blueprint": self._BLUEPRINT,
+            "value": [{"instance": instance, "index": index} for instance, index in self._tags],
+        }
 
 
 class GVASCustomStructValue(GVASStructValue):
-    __slots__ = (
-        "_attributes",
-    )
+    __slots__ = ("_attributes",)
 
     _attributes: dict[str, GVASProperty]
 
@@ -83,10 +92,7 @@ class GVASCustomStructValue(GVASStructValue):
         attributes: dict[str, GVASProperty] = {}
         name, bytes_read = read_string(data, offset)
         while name != "None":
-            property_class, offset = GVASProperty.parse_type(
-                data,
-                offset + bytes_read,
-            )
+            property_class, offset = GVASProperty.parse_type(data, offset + bytes_read)
             value, offset = property_class.parse(data, offset)
             attributes[name] = value
             name, bytes_read = read_string(data, offset)
@@ -105,9 +111,18 @@ class GVASCustomStructValue(GVASStructValue):
     def parse_many(cls, unit_width: int, data: bytes, offset: int) -> tuple[Sequence[Self], int]:
         if unit_width != 0:
             raise ValueError(f"Invalid unit width at {offset}")
-        count = struct.unpack_from("<L", data, offset)[0]
+        count = struct.unpack_from("<I", data, offset)[0]
         offset += 4
         selfs = [cls.__new__(cls) for _ in range(count)]
         for self in selfs:
             self._attributes, offset = cls._parse_content(data, offset)
         return selfs, offset
+
+    @final
+    @override
+    def to_json(self) -> dict[str, Any]:
+        result: dict[str, Any] = {"name": self._NAME, "blueprint": self._BLUEPRINT}
+        if self._GUID:
+            result["guid"] = self._GUID
+        result["value"] = {name: prop.to_json() for name, prop in self._attributes.items()}
+        return result
