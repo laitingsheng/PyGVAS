@@ -1,102 +1,529 @@
+from __future__ import annotations
+
+import itertools
 import struct
+from abc import abstractmethod
 from typing import Any, ClassVar, Self, Sequence, final, override
+import uuid
 
 from ..utils import read_string
-from ..values import GVASStructValue
-from ._base import GVASProperty, GVASPropertyArray
+from ._base import GVASProperty
+from ._names import GVASNameProperty
+from ._objects import GVASObjectProperty
 
-
-def _parse_header(data: bytes, offset: int) -> tuple[type[GVASStructValue], int]:
-    category = struct.unpack_from("<I", data, offset)[0]
-    if category == 1:
-        singleton = True
-    elif category == 2:
-        singleton = False
-    else:
-        raise ValueError(f"Invalid category at {offset}")
-    offset += 4
-    name, bytes_read = read_string(data, offset)
-    if not name:
-        raise ValueError(f"Invalid name at {offset}")
-    offset += bytes_read
-    index = struct.unpack_from("<I", data, offset)[0]
-    if index != 1:
-        raise ValueError(f"Invalid index at {offset}")
-    offset += 4
-    blueprint, bytes_read = read_string(data, offset)
-    if not blueprint:
-        raise ValueError(f"Invalid blueprint at {offset}")
-    offset += bytes_read
-    if singleton:
-        guid = ""
-    else:
-        index = struct.unpack_from("<I", data, offset)[0]
-        if index != 0:
-            raise ValueError(f"Invalid index at {offset}")
-        offset += 4
-        guid, bytes_read = read_string(data, offset)
-        if not guid:
-            raise ValueError(f"Invalid guid at {offset}")
-        offset += bytes_read
-    value_class = GVASStructValue.get_class(blueprint, name)
-    if not value_class.match_guid(guid):
-        raise ValueError(f"Invalid guid at {offset}")
-    return value_class, offset
+_REGISTRY: dict[str, type[GVASStructProperty]] = {}
 
 
 class GVASStructProperty(GVASProperty):
-    __slots__ = ("_value",)
+    __slots__ = ()
 
-    _ACCEPT: ClassVar[str] = "StructProperty"
+    _TYPE: ClassVar[str] = "Struct"
 
-    _value: GVASStructValue
+    @override
+    def __init_subclass__(cls) -> None:
+        pass
+
+    @classmethod
+    @override
+    def parse_array(cls, data: bytes, offset: int) -> tuple[Sequence[Self], int]:
+        padding, size, unit_width, count = struct.unpack_from("<IIBI", data, offset)
+        if padding != 0:
+            raise ValueError(f"Invalid padding at {offset}")
+        offset += 4
+        if size < 4:
+            raise ValueError(f"Invalid size at {offset}")
+        offset += 4
+        if unit_width != 0:
+            raise ValueError(f"Invalid unit width at {offset}")
+        offset += 1
+        expected_offset = offset + size
+        offset += 4
+        selfs: list[Self] = []
+        for _ in range(count):
+            self, offset = cls.parse(data, offset)
+            selfs.append(self)
+        if offset != expected_offset:
+            raise ValueError(f"Invalid offset {offset}")
+        return selfs, offset
+
+    @classmethod
+    @override
+    def parse_full(cls, data: bytes, offset: int) -> tuple[Self, int]:
+        category, size, unit_width = struct.unpack_from("<IIB", data, offset)
+        if category != 0:
+            raise ValueError(f"Invalid category at {offset}")
+        offset += 8
+        if unit_width != 0:
+            raise ValueError(f"Invalid unit width at {offset}")
+        offset += 1
+        expected_offset = offset + size
+        self, offset = cls.parse(data, offset)
+        if offset != expected_offset:
+            raise ValueError(f"Invalid offset {offset}")
+        return self, offset
+
+    @classmethod
+    @final
+    @override
+    def _concrete_type(cls, data: bytes, offset: int) -> tuple[type[GVASStructProperty], int]:
+        category = struct.unpack_from("<I", data, offset)[0]
+        if category == 1:
+            singleton = True
+        elif category == 2:
+            singleton = False
+        else:
+            raise ValueError(f"Invalid category at {offset}")
+        offset += 4
+        name, bytes_read = read_string(data, offset)
+        if not name:
+            raise ValueError(f"Invalid name at {offset}")
+        offset += bytes_read
+        index = struct.unpack_from("<I", data, offset)[0]
+        if index != 1:
+            raise ValueError(f"Invalid index at {offset}")
+        offset += 4
+        blueprint, bytes_read = read_string(data, offset)
+        if not blueprint:
+            raise ValueError(f"Invalid blueprint at {offset}")
+        offset += bytes_read
+        concreate_class = _REGISTRY[f"{blueprint}/{name}"]
+        if singleton:
+            guid = ""
+            bytes_read = 0
+        else:
+            index = struct.unpack_from("<I", data, offset)[0]
+            if index != 0:
+                raise ValueError(f"Invalid index at {offset}")
+            offset += 4
+            guid, bytes_read = read_string(data, offset)
+            if not guid:
+                raise ValueError(f"Invalid guid at {offset}")
+        if not concreate_class._match_guid(guid):
+            raise ValueError(f"Mismatched GUID at {offset}")
+        return concreate_class, offset + bytes_read
+
+    @classmethod
+    @abstractmethod
+    def _match_guid(cls, guid: str) -> bool:
+        raise NotImplementedError(cls.__name__)
+
+
+class GVASUniqueStructProperty(GVASStructProperty):
+    __slots__ = ()
+
+    _BLUEPRINT: ClassVar[str]
+    _NAME: ClassVar[str]
 
     @final
     @override
+    def __init_subclass__(cls) -> None:
+        if not cls._BLUEPRINT:
+            raise ValueError(f"{cls.__name__} does not have a blueprint")
+        if not cls._NAME:
+            raise ValueError(f"{cls.__name__} does not have a name")
+        fullpath = f"{cls._BLUEPRINT}/{cls._NAME}"
+        if fullpath in _REGISTRY:
+            raise ValueError(f"Duplicate struct property {cls._NAME} in {cls._BLUEPRINT}")
+        _REGISTRY[fullpath] = cls
+
     @classmethod
-    def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
-        value_class, offset = _parse_header(data, offset)
-        flag, size, unit_width = struct.unpack_from("<IIB", data, offset)
-        if flag != 0:
-            raise ValueError(f"Invalid flag at {offset}")
-        offset += 9
-        expected_offset = offset + size
+    @final
+    @override
+    def type_json(cls) -> dict[str, str]:
+        return super().type_json() | {"blueprint": cls._BLUEPRINT, "name": cls._NAME}
+
+    @classmethod
+    @final
+    @override
+    def _match_guid(cls, guid: str) -> bool:
+        return guid == ""
+
+
+class GVASCoreDateTime(GVASUniqueStructProperty):
+    __slots__ = ("_timestamp",)
+
+    _BLUEPRINT: ClassVar[str] = "/Script/CoreUObject"
+    _NAME: ClassVar[str] = "DateTime"
+
+    _timestamp: int
+
+    @classmethod
+    @final
+    @override
+    def parse_full(cls, data: bytes, offset: int) -> tuple[Self, int]:
+        category, size, unit_width, timestamp = struct.unpack_from("<IIBQ", data, offset)
+        if category != 0:
+            raise ValueError(f"Invalid category at {offset}")
+        offset += 4
+        if size != 8:
+            raise ValueError(f"Invalid size at {offset}")
+        offset += 4
+        if unit_width != 8:
+            raise ValueError(f"Invalid unit width at {offset}")
         self = cls.__new__(cls)
-        self._value, offset = value_class.parse(unit_width, data, offset)
+        self._timestamp = timestamp
+        return self, offset + 9
+
+    @final
+    @override
+    def to_json(self) -> int:
+        return self._timestamp
+
+
+class GVASCoreGameplayTagContainer(GVASUniqueStructProperty):
+    __slots__ = ("_tags",)
+
+    _BLUEPRINT: ClassVar[str] = "/Script/GameplayTags"
+    _NAME: ClassVar[str] = "GameplayTagContainer"
+
+    _tags: list[str]
+
+    @classmethod
+    @final
+    @override
+    def parse_full(cls, data: bytes, offset: int) -> tuple[Self, int]:
+        category, size, unit_width, count = struct.unpack_from("<IIBI", data, offset)
+        if category != 0:
+            raise ValueError(f"Invalid category at {offset}")
+        offset += 4
+        if size < 4:
+            raise ValueError(f"Invalid size at {offset}")
+        offset += 4
+        if unit_width != 8:
+            raise ValueError(f"Invalid unit width at {offset}")
+        offset += 1
+        expected_offset = offset + size
+        offset += 4
+        self = cls.__new__(cls)
+        self._tags = []
+        for _ in range(count):
+            tag, bytes_read = read_string(data, offset)
+            offset += bytes_read
+            self._tags.append(tag)
         if offset != expected_offset:
-            raise ValueError(f"Invalid offset at {offset}")
+            raise ValueError(f"Invalid size at {offset}")
         return self, offset
 
     @final
     @override
-    def to_json(self) -> Any:
-        return {"type": self._ACCEPT, "value": self._value.to_json()}
+    def to_json(self) -> list[str]:
+        return list(self._tags)
 
 
-class GVASStructPropertyArray(GVASPropertyArray):
-    __slots__ = ("_value",)
+class GVASCoreGUID(GVASUniqueStructProperty):
+    __slots__ = ("_guid",)
 
-    _ACCEPT: ClassVar[str] = "StructProperty"
+    _BLUEPRINT: ClassVar[str] = "/Script/CoreUObject"
+    _NAME: ClassVar[str] = "Guid"
 
-    _value: Sequence[GVASStructValue]
+    _guid: uuid.UUID
+
+    @classmethod
+    @final
+    @override
+    def parse_full(cls, data: bytes, offset: int) -> tuple[Self, int]:
+        category, size, unit_width = struct.unpack_from("<IIB", data, offset)
+        if category != 0:
+            raise ValueError(f"Invalid category at {offset}")
+        offset += 4
+        if size != 16:
+            raise ValueError(f"Invalid size at {offset}")
+        offset += 4
+        if unit_width != 8:
+            raise ValueError(f"Invalid unit width at {offset}")
+        offset += 1
+        self = cls.__new__(cls)
+        self._guid = uuid.UUID(bytes_le=struct.unpack_from("<16s", data, offset)[0])
+        return self, offset + 16
 
     @final
     @override
+    def to_json(self) -> str:
+        return str(self._guid)
+
+
+class GVASCoreSoftObjectPath(GVASUniqueStructProperty):
+    __slots__ = ("_blueprint", "_name", "_value")
+
+    _BLUEPRINT: ClassVar[str] = "/Script/CoreUObject"
+    _NAME: ClassVar[str] = "SoftObjectPath"
+
+    _blueprint: str
+    _name: str
+    _value: str
+
     @classmethod
-    def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
-        value_class, offset = _parse_header(data, offset)
-        flag, size, unit_width = struct.unpack_from("<IIB", data, offset)
-        if flag != 0:
-            raise ValueError(f"Invalid flag at {offset}")
-        offset += 9
+    @final
+    @override
+    def parse_full(cls, data: bytes, offset: int) -> tuple[Self, int]:
+        category, size, unit_width = struct.unpack_from("<IIB", data, offset)
+        if category != 0:
+            raise ValueError(f"Invalid category at {offset}")
+        offset += 4
+        if size < 12:
+            raise ValueError(f"Invalid size at {offset}")
+        offset += 4
+        if unit_width != 8:
+            raise ValueError(f"Invalid unit width at {offset}")
+        offset += 1
         expected_offset = offset + size
         self = cls.__new__(cls)
-        self._value, offset = value_class.parse_many(unit_width, data, offset)
+        self._blueprint, bytes_read = read_string(data, offset)
+        offset += bytes_read
+        self._name, bytes_read = read_string(data, offset)
+        offset += bytes_read
+        self._value, bytes_read = read_string(data, offset)
+        offset += bytes_read
         if offset != expected_offset:
-            raise ValueError(f"Invalid offset at {offset}")
+            raise ValueError(f"Invalid size at {offset}")
         return self, offset
 
     @final
     @override
-    def to_json(self) -> Any:
-        return {"type": self._ACCEPT, "value": [item.to_json() for item in self._value]}
+    def to_json(self) -> dict[str, str]:
+        return {"blueprint": self._blueprint, "name": self._name, "value": self._value}
+
+
+class GVASCoreVector(GVASUniqueStructProperty):
+    __slots__ = ("_value",)
+
+    _BLUEPRINT: ClassVar[str] = "/Script/CoreUObject"
+    _NAME: ClassVar[str] = "Vector"
+
+    _value: tuple[float, float, float]
+
+    @classmethod
+    @final
+    @override
+    def parse_array(cls, data: bytes, offset: int) -> tuple[list[Self], int]:
+        padding, size, unit_width, count = struct.unpack_from("<IIBI", data, offset)
+        if padding != 0:
+            raise ValueError(f"Invalid padding at {offset}")
+        offset += 4
+        if size < 4:
+            raise ValueError(f"Invalid size at {offset}")
+        offset += 4
+        if unit_width != 8:
+            raise ValueError(f"Invalid unit width at {offset}")
+        offset += 1
+        if count * 24 + 4 != size:
+            raise ValueError(f"Invalid count at {offset}")
+        offset += 4
+        selfs: list[Self] = []
+        for x, y, z in itertools.batched(struct.unpack_from(f"<{count * 3}d", data, offset), 3):
+            self = cls.__new__(cls)
+            self._value = x, y, z
+            selfs.append(self)
+        return selfs, offset + count * 24
+
+    @classmethod
+    @final
+    @override
+    def parse_full(cls, data: bytes, offset: int) -> tuple[Self, int]:
+        category, size, unit_width = struct.unpack_from("<IIB", data, offset)
+        if category != 0:
+            raise ValueError(f"Invalid category at {offset}")
+        offset += 4
+        if size != 24:
+            raise ValueError(f"Invalid size at {offset}")
+        offset += 4
+        if unit_width != 8:
+            raise ValueError(f"Invalid unit width at {offset}")
+        offset += 1
+        x, y, z = struct.unpack_from("<3d", data, offset)
+        self = cls.__new__(cls)
+        self._value = x, y, z
+        return self, offset + 24
+
+    @final
+    @override
+    def to_json(self) -> dict[str, Any]:
+        x, y, z = self._value
+        return {"x": x, "y": y, "z": z}
+
+
+class GVASCoreRotator(GVASUniqueStructProperty):
+    __slots__ = ("_value",)
+
+    _BLUEPRINT: ClassVar[str] = "/Script/CoreUObject"
+    _NAME: ClassVar[str] = "Rotator"
+
+    _value: tuple[float, float, float]
+
+    @classmethod
+    @final
+    @override
+    def parse_full(cls, data: bytes, offset: int) -> tuple[Self, int]:
+        category, size, unit_width = struct.unpack_from("<IIB", data, offset)
+        if category != 0:
+            raise ValueError(f"Invalid category at {offset}")
+        offset += 4
+        if size != 24:
+            raise ValueError(f"Invalid size at {offset}")
+        offset += 4
+        if unit_width != 8:
+            raise ValueError(f"Invalid unit width at {offset}")
+        offset += 1
+        x, y, z = struct.unpack_from("<3d", data, offset)
+        self = cls.__new__(cls)
+        self._value = x, y, z
+        return self, offset + 24
+
+    @final
+    @override
+    def to_json(self) -> dict[str, Any]:
+        x, y, z = self._value
+        return {"x": x, "y": y, "z": z}
+
+
+class GVASCoreQuat(GVASUniqueStructProperty):
+    __slots__ = ("_value",)
+
+    _BLUEPRINT: ClassVar[str] = "/Script/CoreUObject"
+    _NAME: ClassVar[str] = "Quat"
+
+    _value: tuple[float, float, float, float]
+
+    @classmethod
+    @final
+    @override
+    def parse_full(cls, data: bytes, offset: int) -> tuple[Self, int]:
+        category, size, unit_width = struct.unpack_from("<IIB", data, offset)
+        if category != 0:
+            raise ValueError(f"Invalid category at {offset}")
+        offset += 4
+        if size != 32:
+            raise ValueError(f"Invalid size at {offset}")
+        offset += 4
+        if unit_width != 8:
+            raise ValueError(f"Invalid unit width at {offset}")
+        offset += 1
+        x, y, z, w = struct.unpack_from("<4d", data, offset)
+        self = cls.__new__(cls)
+        self._value = x, y, z, w
+        return self, offset + 32
+
+    @final
+    @override
+    def to_json(self) -> dict[str, Any]:
+        x, y, z, w = self._value
+        return {"x": x, "y": y, "z": z, "w": w}
+
+
+class GVASStructAttributes(type):
+    @final
+    @override
+    def __new__(
+        cls, name: str, bases: tuple[type, ...], attrs: dict[str, Any], **kwargs: tuple[str, type[GVASProperty]]
+    ) -> type:
+        attrs["__slots__"] = tuple(itertools.chain(attrs.get("__slots__", ()), (f"_{key}" for key in kwargs.keys())))
+        attrs.setdefault("__annotations__", {}).update(
+            (f"_{key}", property_type.__name__) for key, (_, property_type) in kwargs.items()
+        )
+
+        def parse(cls: type[GVASStructProperty], data: bytes, offset: int) -> tuple[GVASStructProperty, int]:
+            self = cls.__new__(cls)
+            for key, (property_name, property_type) in kwargs.items():
+                attribute_name, bytes_read = read_string(data, offset)
+                if attribute_name != property_name:
+                    raise ValueError(f"Invalid attribute name at {offset}")
+                attribute_type, offset = GVASProperty.parse_type(data, offset + bytes_read)
+                if attribute_type != property_type:
+                    raise ValueError(f"Invalid attribute type at {offset}")
+                value, offset = attribute_type.parse_full(data, offset)
+                setattr(self, f"_{key}", value)
+            attribute_name, bytes_read = read_string(data, offset)
+            if attribute_name != "None":
+                raise ValueError(f"Invalid end of attributes at {offset}")
+            return self, offset + bytes_read
+
+        attrs["parse"] = classmethod(final(override(parse)))
+
+        def to_json(self: GVASStructProperty) -> dict[str, dict[str, dict[str, Any]]]:
+            return {
+                key: {"type": property_type.type_json(), "value": getattr(self, f"_{key}").to_json()}
+                for key, (_, property_type) in kwargs.items()
+            }
+
+        attrs["to_json"] = final(override(to_json))
+
+        return super().__new__(cls, name, bases, attrs)
+
+
+class GVASCoreDataTableRowHandle(
+    GVASUniqueStructProperty,
+    metaclass=GVASStructAttributes,
+    data_table=("DataTable", GVASObjectProperty),
+    row_name=("RowName", GVASNameProperty),
+):
+    __slots__ = ()
+
+    _BLUEPRINT: ClassVar[str] = "/Script/Engine"
+    _NAME: ClassVar[str] = "DataTableRowHandle"
+
+
+class GVASCoreTransform(
+    GVASUniqueStructProperty,
+    metaclass=GVASStructAttributes,
+    rotation=("Rotation", GVASCoreQuat),
+    translation=("Translation", GVASCoreVector),
+    scale=("Scale3D", GVASCoreVector),
+):
+    __slots__ = ()
+
+    _BLUEPRINT: ClassVar[str] = "/Script/CoreUObject"
+    _NAME: ClassVar[str] = "Transform"
+
+
+class GVASBlueprintStructProperty(GVASStructProperty):
+    __slots__ = ("_attributes",)
+
+    _BLUEPRINT: ClassVar[str]
+    _GUID: ClassVar[str]
+    _NAME: ClassVar[str]
+
+    _attributes: dict[str, GVASProperty]
+
+    @final
+    @override
+    def __init_subclass__(cls) -> None:
+        if not cls._BLUEPRINT:
+            raise ValueError(f"{cls.__name__} does not have a blueprint")
+        if not cls._NAME:
+            raise ValueError(f"{cls.__name__} does not have a name")
+        fullpath = f"{cls._BLUEPRINT}/{cls._NAME}"
+        if fullpath in _REGISTRY:
+            raise ValueError(f"Duplicate struct property {cls._NAME} in {cls._BLUEPRINT}")
+        _REGISTRY[fullpath] = cls
+
+    @classmethod
+    @final
+    @override
+    def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
+        self = cls.__new__(cls)
+        self._attributes = {}
+        name, bytes_read = read_string(data, offset)
+        while name != "None":
+            property_type, offset = GVASProperty.parse_type(data, offset + bytes_read)
+            attribute, offset = property_type.parse_full(data, offset)
+            self._attributes[name] = attribute
+            name, bytes_read = read_string(data, offset)
+        offset += bytes_read
+        return self, offset
+
+    @classmethod
+    @final
+    @override
+    def type_json(cls) -> dict[str, str]:
+        return super().type_json() | {"blueprint": cls._BLUEPRINT, "name": cls._NAME, "guid": cls._GUID}
+
+    @classmethod
+    @final
+    @override
+    def _match_guid(cls, guid: str) -> bool:
+        return guid == cls._GUID
+
+    @final
+    @override
+    def to_json(self) -> dict[str, dict[str, dict[str, Any]]]:
+        return {key: {"type": value.type_json(), "value": value.to_json()} for key, value in self._attributes.items()}

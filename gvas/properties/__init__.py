@@ -1,41 +1,39 @@
 from ._arrays import GVASArrayProperty
-from ._base import GVASProperty, GVASPropertyArray
-from ._bools import GVASBoolProperty, GVASBoolPropertyArray
+from ._base import GVASProperty
+from ._bools import GVASBoolProperty
 from ._bytes import GVASByteProperty
-from ._doubles import GVASDoubleProperty, GVASDoublePropertyArray
+from ._doubles import GVASDoubleProperty
 from ._enums import GVASEnumProperty
-from ._floats import GVASFloatProperty, GVASFloatPropertyArray
-from ._ints import GVASIntProperty, GVASIntPropertyArray
-from ._names import GVASNameProperty, GVASNamePropertyArray
-from ._objects import GVASObjectProperty, GVASObjectPropertyArray
-from ._shorts import GVASShortProperty, GVASShortPropertyArray
-from ._strs import GVASStrProperty, GVASStrPropertyArray
-from ._structs import GVASStructProperty, GVASStructPropertyArray
-from ._texts import GVASTextProperty
+from ._floats import GVASFloatProperty
+from ._ints import GVASIntProperty
+from ._maps import GVASMapProperty
+from ._names import GVASNameProperty
+from ._objects import GVASObjectProperty, GVASSoftObjectProperty
+from ._sets import GVASSetProperty
+from ._strs import GVASStrProperty
+from ._structs import GVASBlueprintStructProperty, GVASStructAttributes, GVASStructProperty, GVASUniqueStructProperty
+from ._texts import GVASText, GVASTextProperty
+
 
 __all__ = [
     "GVASArrayProperty",
+    "GVASBlueprintStructProperty",
     "GVASBoolProperty",
-    "GVASBoolPropertyArray",
     "GVASByteProperty",
     "GVASDoubleProperty",
-    "GVASDoublePropertyArray",
     "GVASEnumProperty",
     "GVASFloatProperty",
-    "GVASFloatPropertyArray",
     "GVASIntProperty",
-    "GVASIntPropertyArray",
+    "GVASMapProperty",
     "GVASNameProperty",
-    "GVASNamePropertyArray",
     "GVASObjectProperty",
-    "GVASObjectPropertyArray",
     "GVASProperty",
-    "GVASPropertyArray",
-    "GVASShortProperty",
-    "GVASShortPropertyArray",
+    "GVASSetProperty",
+    "GVASSoftObjectProperty",
     "GVASStrProperty",
-    "GVASStrPropertyArray",
+    "GVASStructAttributes",
     "GVASStructProperty",
-    "GVASStructPropertyArray",
+    "GVASText",
     "GVASTextProperty",
+    "GVASUniqueStructProperty",
 ]

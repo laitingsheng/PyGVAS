@@ -4,10 +4,10 @@ from typing import Any, ClassVar, Self, Sequence, final, override
 from ._base import GVASProperty
 
 
-class GVASArrayProperty(GVASProperty):
+class GVASSetProperty(GVASProperty):
     __slots__ = ("_element_type", "_values")
 
-    _TYPE: ClassVar[str] = "Array"
+    _TYPE: ClassVar[str] = "Set"
 
     _element_type: type[GVASProperty]
     _values: Sequence[GVASProperty]
@@ -20,7 +20,7 @@ class GVASArrayProperty(GVASProperty):
             raise ValueError(f"Invalid category at {offset}")
         self = cls.__new__(cls)
         self._element_type, offset = GVASProperty.parse_type(data, offset + 4)
-        self._values, offset = self._element_type.parse_array(data, offset)
+        self._values, offset = self._element_type.parse_set(data, offset)
         return self, offset
 
     @final

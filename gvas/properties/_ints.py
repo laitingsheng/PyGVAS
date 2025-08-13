@@ -1,20 +1,20 @@
 import struct
-from typing import Any, ClassVar, Self, final, override
+from typing import ClassVar, Self, final, override
 
-from ._base import GVASProperty, GVASPropertyArray
+from ._base import GVASProperty
 
 
 class GVASIntProperty(GVASProperty):
     __slots__ = ("_value",)
 
-    _ACCEPT: ClassVar[str] = "IntProperty"
+    _TYPE: ClassVar[str] = "Int"
 
     _value: int
 
+    @classmethod
     @final
     @override
-    @classmethod
-    def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
+    def parse_full(cls, data: bytes, offset: int) -> tuple[Self, int]:
         category, size, unit_width, value = struct.unpack_from("<IIBi", data, offset)
         if category != 0:
             raise ValueError(f"Invalid category at {offset}")
@@ -30,36 +30,5 @@ class GVASIntProperty(GVASProperty):
 
     @final
     @override
-    def to_json(self) -> dict[str, Any]:
-        return {"type": self._ACCEPT, "value": self._value}
-
-
-class GVASIntPropertyArray(GVASPropertyArray):
-    __slots__ = ("_value",)
-
-    _ACCEPT: ClassVar[str] = "IntProperty"
-
-    _value: list[int]
-
-    @final
-    @override
-    @classmethod
-    def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
-        category, size, unit_width, count = struct.unpack_from("<IIBI", data, offset)
-        if category != 0:
-            raise ValueError(f"Invalid category at {offset}")
-        offset += 4
-        if size != count * 4 + 4:
-            raise ValueError(f"Invalid size at {offset}")
-        offset += 4
-        if unit_width != 0:
-            raise ValueError(f"Invalid unit width at {offset}")
-        offset += 5
-        self = cls.__new__(cls)
-        self._value = list(struct.unpack_from(f"<{count}i", data, offset))
-        return self, offset + count * 4
-
-    @final
-    @override
-    def to_json(self) -> dict[str, Any]:
-        return {"type": self._ACCEPT, "value": self._value}
+    def to_json(self) -> int:
+        return self._value

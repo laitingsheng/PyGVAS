@@ -1,20 +1,49 @@
 import struct
-from typing import Any, ClassVar, Self, final, override
+from typing import ClassVar, Self, final, override
 
-from ._base import GVASProperty, GVASPropertyArray
+from ._base import GVASProperty
 
 
 class GVASBoolProperty(GVASProperty):
     __slots__ = ("_value",)
 
-    _ACCEPT: ClassVar[str] = "BoolProperty"
+    _TYPE: ClassVar[str] = "Bool"
 
     _value: bool
 
+    @classmethod
     @final
     @override
+    def parse_array(cls, data: bytes, offset: int) -> tuple[list[Self], int]:
+        padding, size, unit_width, count = struct.unpack_from("<IIBI", data, offset)
+        if padding != 0:
+            raise ValueError(f"Invalid padding at {offset}")
+        offset += 4
+        if size < 4:
+            raise ValueError(f"Invalid size at {offset}")
+        offset += 4
+        if unit_width != 0:
+            raise ValueError(f"Invalid unit width at {offset}")
+        offset += 1
+        if count + 4 != size:
+            raise ValueError(f"Invalid count at {offset}")
+        offset += 4
+        selfs: list[Self] = []
+        for value in struct.unpack_from(f"<{count}B", data, offset):
+            self = cls.__new__(cls)
+            if value == 0:
+                self._value = False
+            elif value == 0x1:
+                self._value = True
+            else:
+                raise ValueError(f"Invalid value at {offset}")
+            selfs.append(self)
+        return selfs, offset + count
+
     @classmethod
-    def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
+    @final
+    @override
+    def parse_full(cls, data: bytes, offset: int) -> tuple[Self, int]:
         category, size, value = struct.unpack_from("<IIB", data, offset)
         if category != 0:
             raise ValueError(f"Invalid category at {offset}")
@@ -22,52 +51,16 @@ class GVASBoolProperty(GVASProperty):
         if size != 0:
             raise ValueError(f"Invalid size at {offset}")
         offset += 4
-        self = cls.__new__(cls)
+        instance = cls.__new__(cls)
         if value == 0:
-            self._value = False
+            instance._value = False
         elif value == 0x10:
-            self._value = True
+            instance._value = True
         else:
             raise ValueError(f"Invalid value at {offset}")
-        return self, offset + 1
+        return instance, offset + 1
 
     @final
     @override
-    def to_json(self) -> dict[str, Any]:
-        return {"type": self._ACCEPT, "value": self._value}
-
-
-class GVASBoolPropertyArray(GVASPropertyArray):
-    __slots__ = ("_value",)
-
-    _ACCEPT: ClassVar[str] = "BoolProperty"
-
-    _value: list[bool]
-
-    @final
-    @override
-    @classmethod
-    def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
-        category, size, unit_width, count = struct.unpack_from("<IIBI", data, offset)
-        if category != 0:
-            raise ValueError(f"Invalid category at {offset}")
-        offset += 4
-        if size != count + 4:
-            raise ValueError(f"Invalid size at {offset}")
-        offset += 4
-        if unit_width != 0:
-            raise ValueError(f"Invalid unit width at {offset}")
-        offset += 5
-        self = cls.__new__(cls)
-        self._value = [False] * count
-        for i, value in enumerate(struct.unpack_from(f"<{count}B", data, offset)):
-            if value == 0x1:
-                self._value[i] = True
-            elif value != 0:
-                raise ValueError(f"Invalid value at {offset + i}")
-        return self, offset + count
-
-    @final
-    @override
-    def to_json(self) -> dict[str, Any]:
-        return {"type": self._ACCEPT, "value": self._value}
+    def to_json(self) -> bool:
+        return self._value

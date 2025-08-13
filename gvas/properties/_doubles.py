@@ -1,20 +1,44 @@
 import struct
-from typing import Any, ClassVar, Self, final, override
+from typing import ClassVar, Self, Sequence, final, override
 
-from ._base import GVASProperty, GVASPropertyArray
+from ._base import GVASProperty
 
 
 class GVASDoubleProperty(GVASProperty):
     __slots__ = ("_value",)
 
-    _ACCEPT: ClassVar[str] = "DoubleProperty"
+    _TYPE: ClassVar[str] = "Double"
 
     _value: float
 
+    @classmethod
     @final
     @override
+    def parse_array(cls, data: bytes, offset: int) -> tuple[Sequence[Self], int]:
+        padding, size, unit_width, count = struct.unpack_from("<IIBI", data, offset)
+        if padding != 0:
+            raise ValueError(f"Invalid padding at {offset}")
+        offset += 4
+        if size < 4:
+            raise ValueError(f"Invalid size at {offset}")
+        offset += 4
+        if unit_width != 0:
+            raise ValueError(f"Invalid unit width at {offset}")
+        offset += 1
+        if count * 8 + 4 != size:
+            raise ValueError(f"Invalid count at {offset}")
+        offset += 4
+        selfs: list[Self] = []
+        for value in struct.unpack_from(f"<{count}d", data, offset):
+            self = cls.__new__(cls)
+            self._value = value
+            selfs.append(self)
+        return selfs, offset + count * 8
+
     @classmethod
-    def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
+    @final
+    @override
+    def parse_full(cls, data: bytes, offset: int) -> tuple[Self, int]:
         category, size, unit_width, value = struct.unpack_from("<IIBd", data, offset)
         if category != 0:
             raise ValueError(f"Invalid category at {offset}")
@@ -30,36 +54,5 @@ class GVASDoubleProperty(GVASProperty):
 
     @final
     @override
-    def to_json(self) -> dict[str, Any]:
-        return {"type": self._ACCEPT, "value": self._value}
-
-
-class GVASDoublePropertyArray(GVASPropertyArray):
-    __slots__ = ("_value",)
-
-    _ACCEPT: ClassVar[str] = "DoubleProperty"
-
-    _value: list[float]
-
-    @final
-    @override
-    @classmethod
-    def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
-        category, size, unit_width, count = struct.unpack_from("<IIBI", data, offset)
-        if category != 0:
-            raise ValueError(f"Invalid category at {offset}")
-        offset += 4
-        if size != count * 8 + 4:
-            raise ValueError(f"Invalid size at {offset}")
-        offset += 4
-        if unit_width != 0:
-            raise ValueError(f"Invalid unit width at {offset}")
-        offset += 5
-        self = cls.__new__(cls)
-        self._value = list(struct.unpack_from(f"<{count}d", data, offset))
-        return self, offset + count * 8
-
-    @final
-    @override
-    def to_json(self) -> dict[str, Any]:
-        return {"type": self._ACCEPT, "value": self._value}
+    def to_json(self) -> float:
+        return self._value
