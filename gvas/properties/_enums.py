@@ -81,7 +81,17 @@ class GVASEnumProperty(GVASProperty):
         type_name, bytes_read = read_string(data, offset)
         if type_name != "ByteProperty":
             raise ValueError(f"Invalid type at {offset}")
-        return _REGISTRY[f"{blueprint}/{name}"], offset + bytes_read
+        offset += bytes_read
+        fullpath = f"{blueprint}/{name}"
+        concrete_class = _REGISTRY.get(fullpath, None)
+        if concrete_class is None:
+            concrete_class = type(
+                f"GVASEnumProperty@{fullpath}",
+                (GVASEnumProperty,),
+                {"__slots__": (), "_BLUEPRINT": blueprint, "_NAME": name},
+            )
+            _REGISTRY[fullpath] = concrete_class
+        return concrete_class, offset
 
     @final
     @override

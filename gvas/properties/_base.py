@@ -13,8 +13,8 @@ class GVASProperty:
 
     _TYPE: ClassVar[str]
 
-    @final
     @staticmethod
+    @final
     def parse_type(data: bytes, offset: int) -> tuple[type[GVASProperty], int]:
         property_type, bytes_read = read_string(data, offset)
         return _REGISTRY[property_type]._concrete_type(data, offset + bytes_read)

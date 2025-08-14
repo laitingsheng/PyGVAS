@@ -8,8 +8,6 @@ import uuid
 
 from ..utils import read_string
 from ._base import GVASProperty
-from ._names import GVASNameProperty
-from ._objects import GVASObjectProperty
 
 _REGISTRY: dict[str, type[GVASStructProperty]] = {}
 
@@ -86,21 +84,35 @@ class GVASStructProperty(GVASProperty):
         if not blueprint:
             raise ValueError(f"Invalid blueprint at {offset}")
         offset += bytes_read
-        concreate_class = _REGISTRY[f"{blueprint}/{name}"]
+        fullpath = f"{blueprint}/{name}"
+        concrete_class = _REGISTRY.get(fullpath, None)
         if singleton:
+            if concrete_class is None:
+                concrete_class = type(
+                    f"GVASStructProperty@{fullpath}",
+                    (GVASBlueprintStructProperty,),
+                    {"__slots__": (), "_BLUEPRINT": blueprint, "_NAME": name, "_GUID": ""},
+                )
+                _REGISTRY[fullpath] = concrete_class
             guid = ""
-            bytes_read = 0
         else:
-            index = struct.unpack_from("<I", data, offset)[0]
-            if index != 0:
+            if struct.unpack_from("<I", data, offset)[0] != 0:
                 raise ValueError(f"Invalid index at {offset}")
             offset += 4
             guid, bytes_read = read_string(data, offset)
             if not guid:
-                raise ValueError(f"Invalid guid at {offset}")
-        if not concreate_class._match_guid(guid):
+                raise ValueError(f"Missing guid at {offset}")
+            offset += bytes_read
+            if concrete_class is None:
+                concrete_class = type(
+                    f"GVASStructProperty@{fullpath}",
+                    (GVASBlueprintStructProperty,),
+                    {"__slots__": (), "_BLUEPRINT": blueprint, "_NAME": name, "_GUID": guid},
+                )
+                _REGISTRY[fullpath] = concrete_class
+        if not getattr(concrete_class, "_match_guid")(guid):
             raise ValueError(f"Mismatched GUID at {offset}")
-        return concreate_class, offset + bytes_read
+        return concrete_class, offset
 
     @classmethod
     @abstractmethod
@@ -176,7 +188,7 @@ class GVASCoreGameplayTagContainer(GVASUniqueStructProperty):
     _BLUEPRINT: ClassVar[str] = "/Script/GameplayTags"
     _NAME: ClassVar[str] = "GameplayTagContainer"
 
-    _tags: list[str]
+    _tags: dict[str, bool]
 
     @classmethod
     @final
@@ -195,11 +207,11 @@ class GVASCoreGameplayTagContainer(GVASUniqueStructProperty):
         expected_offset = offset + size
         offset += 4
         self = cls.__new__(cls)
-        self._tags = []
+        self._tags = {}
         for _ in range(count):
             tag, bytes_read = read_string(data, offset)
             offset += bytes_read
-            self._tags.append(tag)
+            self._tags[tag] = True
         if offset != expected_offset:
             raise ValueError(f"Invalid size at {offset}")
         return self, offset
@@ -207,7 +219,7 @@ class GVASCoreGameplayTagContainer(GVASUniqueStructProperty):
     @final
     @override
     def to_json(self) -> list[str]:
-        return list(self._tags)
+        return list(self._tags.keys())
 
 
 class GVASCoreGUID(GVASUniqueStructProperty):
@@ -410,71 +422,6 @@ class GVASCoreQuat(GVASUniqueStructProperty):
         return {"x": x, "y": y, "z": z, "w": w}
 
 
-class GVASStructAttributes(type):
-    @final
-    @override
-    def __new__(
-        cls, name: str, bases: tuple[type, ...], attrs: dict[str, Any], **kwargs: tuple[str, type[GVASProperty]]
-    ) -> type:
-        attrs["__slots__"] = tuple(itertools.chain(attrs.get("__slots__", ()), (f"_{key}" for key in kwargs.keys())))
-        attrs.setdefault("__annotations__", {}).update(
-            (f"_{key}", property_type.__name__) for key, (_, property_type) in kwargs.items()
-        )
-
-        def parse(cls: type[GVASStructProperty], data: bytes, offset: int) -> tuple[GVASStructProperty, int]:
-            self = cls.__new__(cls)
-            for key, (property_name, property_type) in kwargs.items():
-                attribute_name, bytes_read = read_string(data, offset)
-                if attribute_name != property_name:
-                    raise ValueError(f"Invalid attribute name at {offset}")
-                attribute_type, offset = GVASProperty.parse_type(data, offset + bytes_read)
-                if attribute_type != property_type:
-                    raise ValueError(f"Invalid attribute type at {offset}")
-                value, offset = attribute_type.parse_full(data, offset)
-                setattr(self, f"_{key}", value)
-            attribute_name, bytes_read = read_string(data, offset)
-            if attribute_name != "None":
-                raise ValueError(f"Invalid end of attributes at {offset}")
-            return self, offset + bytes_read
-
-        attrs["parse"] = classmethod(final(override(parse)))
-
-        def to_json(self: GVASStructProperty) -> dict[str, dict[str, dict[str, Any]]]:
-            return {
-                key: {"type": property_type.type_json(), "value": getattr(self, f"_{key}").to_json()}
-                for key, (_, property_type) in kwargs.items()
-            }
-
-        attrs["to_json"] = final(override(to_json))
-
-        return super().__new__(cls, name, bases, attrs)
-
-
-class GVASCoreDataTableRowHandle(
-    GVASUniqueStructProperty,
-    metaclass=GVASStructAttributes,
-    data_table=("DataTable", GVASObjectProperty),
-    row_name=("RowName", GVASNameProperty),
-):
-    __slots__ = ()
-
-    _BLUEPRINT: ClassVar[str] = "/Script/Engine"
-    _NAME: ClassVar[str] = "DataTableRowHandle"
-
-
-class GVASCoreTransform(
-    GVASUniqueStructProperty,
-    metaclass=GVASStructAttributes,
-    rotation=("Rotation", GVASCoreQuat),
-    translation=("Translation", GVASCoreVector),
-    scale=("Scale3D", GVASCoreVector),
-):
-    __slots__ = ()
-
-    _BLUEPRINT: ClassVar[str] = "/Script/CoreUObject"
-    _NAME: ClassVar[str] = "Transform"
-
-
 class GVASBlueprintStructProperty(GVASStructProperty):
     __slots__ = ("_attributes",)
 
@@ -515,7 +462,10 @@ class GVASBlueprintStructProperty(GVASStructProperty):
     @final
     @override
     def type_json(cls) -> dict[str, str]:
-        return super().type_json() | {"blueprint": cls._BLUEPRINT, "name": cls._NAME, "guid": cls._GUID}
+        result = super().type_json() | {"blueprint": cls._BLUEPRINT, "name": cls._NAME}
+        if cls._GUID:
+            result["guid"] = cls._GUID
+        return result
 
     @classmethod
     @final

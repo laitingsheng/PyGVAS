@@ -11,7 +11,7 @@ from ._names import GVASNameProperty
 from ._objects import GVASObjectProperty, GVASSoftObjectProperty
 from ._sets import GVASSetProperty
 from ._strs import GVASStrProperty
-from ._structs import GVASBlueprintStructProperty, GVASStructAttributes, GVASStructProperty, GVASUniqueStructProperty
+from ._structs import GVASBlueprintStructProperty, GVASStructProperty, GVASUniqueStructProperty
 from ._texts import GVASText, GVASTextProperty
 
 
@@ -31,7 +31,6 @@ __all__ = [
     "GVASSetProperty",
     "GVASSoftObjectProperty",
     "GVASStrProperty",
-    "GVASStructAttributes",
     "GVASStructProperty",
     "GVASText",
     "GVASTextProperty",

@@ -4,10 +4,7 @@ import sys
 
 from gvas.properties import GVASBlueprintStructProperty
 
-from ._definitions import dummy
 from ._headers import ABFCommonSaveHeader, ABFPlayerSaveHeader, ABFWorldSaveHeader
-
-del dummy
 
 entry, mode, filename = sys.argv
 save_header_class = {"player": ABFPlayerSaveHeader, "world": ABFWorldSaveHeader, "common": ABFCommonSaveHeader}[mode]

@@ -76,7 +76,17 @@ class GVASByteProperty(GVASProperty):
         blueprint, bytes_read = read_string(data, offset)
         if not blueprint:
             raise ValueError(f"Invalid blueprint at {offset}")
-        return _REGISTRY[f"{blueprint}/{name}"], offset + bytes_read
+        offset += bytes_read
+        fullpath = f"{blueprint}/{name}"
+        concrete_class = _REGISTRY.get(fullpath, None)
+        if concrete_class is None:
+            concrete_class = type(
+                f"GVASByteProperty@{fullpath}",
+                (GVASByteProperty,),
+                {"__slots__": (), "_BLUEPRINT": blueprint, "_NAME": name},
+            )
+            _REGISTRY[fullpath] = concrete_class
+        return concrete_class, offset
 
     @final
     @override
