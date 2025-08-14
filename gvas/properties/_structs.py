@@ -233,6 +233,30 @@ class GVASCoreGUID(GVASUniqueStructProperty):
     @classmethod
     @final
     @override
+    def parse_array(cls, data: bytes, offset: int) -> tuple[list[Self], int]:
+        padding, size, unit_width, count = struct.unpack_from("<IIBI", data, offset)
+        if padding != 0:
+            raise ValueError(f"Invalid padding at {offset}")
+        offset += 4
+        if size < 4:
+            raise ValueError(f"Invalid size at {offset}")
+        offset += 4
+        if unit_width != 8:
+            raise ValueError(f"Invalid unit width at {offset}")
+        offset += 1
+        if count * 16 + 4 != size:
+            raise ValueError(f"Invalid count at {offset}")
+        offset += 4
+        selfs: list[Self] = []
+        for guid_bytes in struct.unpack_from("<" + "16s" * count, data, offset):
+            self = cls.__new__(cls)
+            self._guid = uuid.UUID(bytes_le=guid_bytes)
+            selfs.append(self)
+        return selfs, offset + count * 16
+
+    @classmethod
+    @final
+    @override
     def parse_full(cls, data: bytes, offset: int) -> tuple[Self, int]:
         category, size, unit_width = struct.unpack_from("<IIB", data, offset)
         if category != 0:
@@ -294,6 +318,82 @@ class GVASCoreSoftObjectPath(GVASUniqueStructProperty):
     @override
     def to_json(self) -> dict[str, str]:
         return {"blueprint": self._blueprint, "name": self._name, "value": self._value}
+
+
+class GVASCoreTimespan(GVASUniqueStructProperty):
+    __slots__ = ("_duration",)
+
+    _BLUEPRINT: ClassVar[str] = "/Script/CoreUObject"
+    _NAME: ClassVar[str] = "Timespan"
+
+    _duration: int
+
+    @classmethod
+    @final
+    @override
+    def parse_full(cls, data: bytes, offset: int) -> tuple[Self, int]:
+        category, size, unit_width, duration = struct.unpack_from("<IIBQ", data, offset)
+        if category != 0:
+            raise ValueError(f"Invalid category at {offset}")
+        offset += 4
+        if size != 8:
+            raise ValueError(f"Invalid size at {offset}")
+        offset += 4
+        if unit_width != 8:
+            raise ValueError(f"Invalid unit width at {offset}")
+        self = cls.__new__(cls)
+        self._duration = duration
+        return self, offset + 9
+
+    @final
+    @override
+    def to_json(self) -> int:
+        return self._duration
+
+
+class GVASCoreUniqueNetID(GVASUniqueStructProperty):
+    __slots__ = ("_source", "_identifier")
+
+    _BLUEPRINT: ClassVar[str] = "/Script/Engine"
+    _NAME: ClassVar[str] = "UniqueNetIdRepl"
+
+    _source: str
+    _identifier: str
+
+    @classmethod
+    @final
+    @override
+    def parse_full(cls, data: bytes, offset: int) -> tuple[Self, int]:
+        category, size, unit_width, length = struct.unpack_from("<IIBI", data, offset)
+        if category != 0:
+            raise ValueError(f"Invalid category at {offset}")
+        offset += 4
+        if size < 8:
+            raise ValueError(f"Invalid size at {offset}")
+        offset += 4
+        if unit_width != 8:
+            raise ValueError(f"Invalid unit width at {offset}")
+        offset += 1
+        expected_offset = offset + size
+        offset += 4
+        self = cls.__new__(cls)
+        self._source, bytes_read = read_string(data, offset)
+        offset += bytes_read
+        self._identifier, bytes_read = read_string(data, offset)
+        if len(self._identifier) + 1 != length:
+            raise ValueError(f"Invalid identifier length at {offset}")
+        offset += bytes_read
+        if offset != expected_offset:
+            raise ValueError(f"Invalid size at {offset}")
+        return self, offset
+
+    @final
+    @override
+    def to_json(self) -> dict[str, str]:
+        return {
+            "source": self._source,
+            "identifier": self._identifier,
+        }
 
 
 class GVASCoreVector(GVASUniqueStructProperty):

@@ -6,6 +6,7 @@ from ._doubles import GVASDoubleProperty
 from ._enums import GVASEnumProperty
 from ._floats import GVASFloatProperty
 from ._ints import GVASIntProperty
+from ._int64s import GVASInt64Property
 from ._maps import GVASMapProperty
 from ._names import GVASNameProperty
 from ._objects import GVASObjectProperty, GVASSoftObjectProperty
@@ -24,6 +25,7 @@ __all__ = [
     "GVASEnumProperty",
     "GVASFloatProperty",
     "GVASIntProperty",
+    "GVASInt64Property",
     "GVASMapProperty",
     "GVASNameProperty",
     "GVASObjectProperty",

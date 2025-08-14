@@ -47,6 +47,26 @@ class GVASStrProperty(GVASProperty):
     @classmethod
     @final
     @override
+    def parse_full(cls, data: bytes, offset: int) -> tuple[Self, int]:
+        category, size, unit_width = struct.unpack_from("<IIB", data, offset)
+        if category != 0:
+            raise ValueError(f"Invalid category at {offset}")
+        offset += 4
+        if size < 4:
+            raise ValueError(f"Invalid size at {offset}")
+        offset += 4
+        if unit_width != 0:
+            raise ValueError(f"Invalid unit width at {offset}")
+        offset += 1
+        expected_offset = offset + size
+        self, offset = cls.parse(data, offset)
+        if offset != expected_offset:
+            raise ValueError(f"Invalid offset {offset}")
+        return self, offset
+
+    @classmethod
+    @final
+    @override
     def parse_set(cls, data: bytes, offset: int) -> tuple[list[Self], int]:
         padding, size, unit_width, flag, count = struct.unpack_from("<IIBII", data, offset)
         if padding != 0:
@@ -69,26 +89,6 @@ class GVASStrProperty(GVASProperty):
         if offset != expected_offset:
             raise ValueError(f"Invalid offset {offset}")
         return selfs, offset
-
-    @classmethod
-    @final
-    @override
-    def parse_full(cls, data: bytes, offset: int) -> tuple[Self, int]:
-        category, size, unit_width = struct.unpack_from("<IIB", data, offset)
-        if category != 0:
-            raise ValueError(f"Invalid category at {offset}")
-        offset += 4
-        if size < 4:
-            raise ValueError(f"Invalid size at {offset}")
-        offset += 4
-        if unit_width != 0:
-            raise ValueError(f"Invalid unit width at {offset}")
-        offset += 1
-        expected_offset = offset + size
-        self, offset = cls.parse(data, offset)
-        if offset != expected_offset:
-            raise ValueError(f"Invalid offset {offset}")
-        return self, offset
 
     @final
     @override

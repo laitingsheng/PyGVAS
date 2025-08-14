@@ -14,6 +14,14 @@ class GVASDoubleProperty(GVASProperty):
     @classmethod
     @final
     @override
+    def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
+        self = cls.__new__(cls)
+        self._value = struct.unpack_from("<d", data, offset)[0]
+        return self, offset + 8
+
+    @classmethod
+    @final
+    @override
     def parse_array(cls, data: bytes, offset: int) -> tuple[Sequence[Self], int]:
         padding, size, unit_width, count = struct.unpack_from("<IIBI", data, offset)
         if padding != 0:
