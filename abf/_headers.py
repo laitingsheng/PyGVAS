@@ -1,66 +1,83 @@
 import struct
-from typing import Self, final, override
+from typing import Any, final, override
 
-from gvas.headers import GVASHeader
-from gvas.utils import read_string
+from gvas.headers import GVASHeaderSerde
+from gvas.utils import read_string, write_string
 
 
-class ABFCommonSaveHeader(GVASHeader):
+class ABFCommonHeaderSerde(GVASHeaderSerde):
     __slots__ = ()
 
     @classmethod
     @final
     @override
-    def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
-        self, offset = super().parse(data, offset)
+    def from_bytes(cls, data: bytes, offset: int) -> tuple[dict[str, Any], int]:
+        result, offset = super().from_bytes(data, offset)
         if struct.unpack_from("<B", data, offset)[0] != 0:
             raise ValueError(f"Invalid padding at {offset}")
-        return self, offset + 1
-
-
-class ABFPlayerSaveHeader(GVASHeader):
-    __slots__ = ("bodysize",)
-
-    bodysize: int
+        return result, offset + 1
 
     @classmethod
     @final
     @override
-    def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
-        self, offset = super().parse(data, offset)
+    def from_json(cls, data: dict[str, Any]) -> bytes:
+        return super().from_json(data) + struct.pack("<B", 0)
+
+
+class ABFPlayerHeaderSerde(GVASHeaderSerde):
+    __slots__ = ()
+
+    @classmethod
+    @final
+    @override
+    def from_bytes(cls, data: bytes, offset: int) -> tuple[Any, int]:
+        result, offset = super().from_bytes(data, offset)
         flag, size, padding = struct.unpack_from("<IIB", data, offset)
         if flag != 1:
             raise ValueError(f"Invalid flag at {offset}")
         offset += 8
         if padding != 0:
             raise ValueError(f"Invalid padding at {offset}")
-        self.bodysize = size - 1
-        return self, offset + 1
-
-
-class ABFWorldSaveHeader(GVASHeader):
-    __slots__ = ("bodysize",)
-
-    bodysize: int
-    _blueprint_version: int
+        result["bodysize"] = size - 1
+        return result, offset + 1
 
     @classmethod
     @final
     @override
-    def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
-        self, offset = super().parse(data, offset)
+    def from_json(cls, data: dict[str, Any]) -> bytes:
+        return super().from_json(data) + struct.pack("<IIB", 1, data["bodysize"] + 1, 0)
+
+
+class ABFWorldHeaderSerde(GVASHeaderSerde):
+    __slots__ = ()
+
+    @classmethod
+    @final
+    @override
+    def from_bytes(cls, data: bytes, offset: int) -> tuple[dict[str, Any], int]:
+        result, offset = super().from_bytes(data, offset)
         attribute, bytes_read = read_string(data, offset)
         if attribute != "ABF_SAVE_VERSION":
             raise ValueError(f"Invalid attribute at {offset}")
         offset += bytes_read
-        if struct.unpack_from("<I", data, offset)[0] != 3:
+        version, flag, size, padding = struct.unpack_from("<IIIB", data, offset)
+        if version != 3:
             raise ValueError(f"Invalid version at {offset}")
         offset += 4
-        flag, size, padding = struct.unpack_from("<IIB", data, offset)
         if flag != 1:
             raise ValueError(f"Invalid flag at {offset}")
         offset += 8
         if padding != 0:
             raise ValueError(f"Invalid padding at {offset}")
-        self.bodysize = size - 1
-        return self, offset + 1
+        result["bodysize"] = size - 1
+        return result, offset + 1
+
+    @classmethod
+    @final
+    @override
+    def from_json(cls, data: dict[str, Any]) -> bytes:
+        return (
+            super().from_json(data)
+            + write_string("ABF_SAVE_VERSION")
+            + struct.pack("<IIIB", 3, 1, data["bodysize"] + 1, 0)
+        )

@@ -1,28 +1,24 @@
 import struct
-from typing import Any, ClassVar, Self, override
+from typing import Any, ClassVar, final, override
 
-from ._base import GVASProperty
+from ._base import GVASPropertySerde
 
 
-class GVASMapProperty(GVASProperty):
-    __slots__ = ("_key_type", "_value_type", "_values")
+class GVASMapPropertySerde(GVASPropertySerde):
+    __slots__ = ()
 
     _TYPE: ClassVar[str] = "Map"
 
-    _key_type: type[GVASProperty]
-    _value_type: type[GVASProperty]
-    _values: list[tuple[GVASProperty, GVASProperty]]
-
     @classmethod
+    @final
     @override
-    def parse_full(cls, data: bytes, offset: int) -> tuple[Self, int]:
+    def from_bytes_full(cls, data: bytes, offset: int) -> tuple[dict[str, Any], int]:
         if struct.unpack_from("<I", data, offset)[0] != 2:
             raise ValueError(f"Invalid category at {offset}")
-        self = cls.__new__(cls)
-        self._key_type, offset = GVASProperty.parse_type(data, offset + 4)
+        key_type, offset = GVASPropertySerde.type_from_bytes(data, offset + 4)
         if struct.unpack_from("<I", data, offset)[0] != 0:
-            raise ValueError(f"Invalid padding at offset {offset}")
-        self._value_type, offset = GVASProperty.parse_type(data, offset + 4)
+            raise ValueError(f"Invalid padding at {offset}")
+        value_type, offset = GVASPropertySerde.type_from_bytes(data, offset + 4)
         flag, size, unit_width, padding, count = struct.unpack_from("<IIBII", data, offset)
         if flag != 0:
             raise ValueError(f"Invalid flag at {offset}")
@@ -33,20 +29,39 @@ class GVASMapProperty(GVASProperty):
         if unit_width != 0:
             raise ValueError(f"Invalid unit width at {offset}")
         offset += 1
+        expected_offset = offset + size
         if padding != 0:
             raise ValueError(f"Invalid padding at {offset}")
         offset += 8
-        self._values = []
+        values: list[tuple[Any, Any]] = []
         for _ in range(count):
-            key, offset = self._key_type.parse(data, offset)
-            value, offset = self._value_type.parse(data, offset)
-            self._values.append((key, value))
-        return self, offset
-
-    @override
-    def to_json(self) -> dict[str, Any]:
+            key, offset = key_type.from_bytes(data, offset)
+            value, offset = value_type.from_bytes(data, offset)
+            values.append((key, value))
+        if offset != expected_offset:
+            raise ValueError(f"Invalid offset {offset}")
         return {
-            "key_type": self._key_type.type_json(),
-            "value_type": self._value_type.type_json(),
-            "values": [{"key": key.to_json(), "value": value.to_json()} for key, value in self._values],
-        }
+            "key_type": key_type.type_to_json(),
+            "value_type": value_type.type_to_json(),
+            "values": values,
+        }, offset
+
+    @classmethod
+    @final
+    @override
+    def from_json_full(cls, data: dict[str, Any]) -> bytes:
+        key_type = GVASPropertySerde.type_from_json(data["key_type"])
+        value_type = GVASPropertySerde.type_from_json(data["value_type"])
+        values = data["values"]
+        body = b"".join(
+            key_type.from_json(key) + value_type.from_json(value)
+            for key, value in values
+        )
+        return (
+            struct.pack("<I", 2) +
+            key_type.type_to_bytes() +
+            struct.pack("<I", 0) +
+            value_type.type_to_bytes() +
+            struct.pack("<IIBII", 0, len(body) + 8, 0, 0, len(values)) +
+            body
+        )

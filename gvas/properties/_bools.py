@@ -1,20 +1,18 @@
 import struct
-from typing import ClassVar, Self, final, override
+from typing import ClassVar, final, override
 
-from ._base import GVASProperty
+from ._base import GVASPropertySerde
 
 
-class GVASBoolProperty(GVASProperty):
-    __slots__ = ("_value",)
+class GVASBoolPropertySerde(GVASPropertySerde):
+    __slots__ = ()
 
     _TYPE: ClassVar[str] = "Bool"
-
-    _value: bool
 
     @classmethod
     @final
     @override
-    def parse_array(cls, data: bytes, offset: int) -> tuple[list[Self], int]:
+    def from_bytes_array(cls, data: bytes, offset: int) -> tuple[list[bool], int]:
         padding, size, unit_width, count = struct.unpack_from("<IIBI", data, offset)
         if padding != 0:
             raise ValueError(f"Invalid padding at {offset}")
@@ -28,22 +26,20 @@ class GVASBoolProperty(GVASProperty):
         if count + 4 != size:
             raise ValueError(f"Invalid count at {offset}")
         offset += 4
-        selfs: list[Self] = []
+        values: list[bool] = []
         for value in struct.unpack_from(f"<{count}B", data, offset):
-            self = cls.__new__(cls)
             if value == 0:
-                self._value = False
+                values.append(False)
             elif value == 0x1:
-                self._value = True
+                values.append(True)
             else:
                 raise ValueError(f"Invalid value at {offset}")
-            selfs.append(self)
-        return selfs, offset + count
+        return values, offset + count
 
     @classmethod
     @final
     @override
-    def parse_full(cls, data: bytes, offset: int) -> tuple[Self, int]:
+    def from_bytes_full(cls, data: bytes, offset: int) -> tuple[bool, int]:
         category, size, value = struct.unpack_from("<IIB", data, offset)
         if category != 0:
             raise ValueError(f"Invalid category at {offset}")
@@ -51,16 +47,19 @@ class GVASBoolProperty(GVASProperty):
         if size != 0:
             raise ValueError(f"Invalid size at {offset}")
         offset += 4
-        instance = cls.__new__(cls)
         if value == 0:
-            instance._value = False
-        elif value == 0x10:
-            instance._value = True
-        else:
-            raise ValueError(f"Invalid value at {offset}")
-        return instance, offset + 1
+            return False, offset + 1
+        if value == 0x10:
+            return True, offset + 1
+        raise ValueError(f"Invalid value at {offset}")
 
+    @classmethod
+    @override
+    def from_json_array(cls, data: list[bool]) -> bytes:
+        return struct.pack(f"<IIBI{len(data)}B", 0, len(data) + 4, 0, len(data), *(1 if b else 0 for b in data))
+
+    @classmethod
     @final
     @override
-    def to_json(self) -> bool:
-        return self._value
+    def from_json_full(cls, data: bool) -> bytes:
+        return struct.pack("<IIB", 0, 0, 0x10 if data else 0)

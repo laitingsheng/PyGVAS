@@ -1,29 +1,32 @@
 import struct
-from typing import ClassVar, Self, final, override
+from typing import ClassVar, final, override
 
-from ..utils import read_string
-from ._base import GVASProperty
+from ..utils import read_string, write_string
+from ._base import GVASPropertySerde
 
 
-class GVASStrProperty(GVASProperty):
-    __slots__ = ("_value",)
+class GVASStrPropertySerde(GVASPropertySerde):
+    __slots__ = ()
 
     _TYPE: ClassVar[str] = "Str"
 
-    _value: str
+    @classmethod
+    @final
+    @override
+    def from_bytes(cls, data: bytes, offset: int) -> tuple[str, int]:
+        value, bytes_read = read_string(data, offset)
+        return value, offset + bytes_read
 
     @classmethod
     @final
     @override
-    def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
-        self = cls.__new__(cls)
-        self._value, bytes_read = read_string(data, offset)
-        return self, offset + bytes_read
+    def from_json(cls, data: str) -> bytes:
+        return write_string(data)
 
     @classmethod
     @final
     @override
-    def parse_array(cls, data: bytes, offset: int) -> tuple[list[Self], int]:
+    def from_bytes_array(cls, data: bytes, offset: int) -> tuple[list[str], int]:
         padding, size, unit_width, count = struct.unpack_from("<IIBI", data, offset)
         if padding != 0:
             raise ValueError(f"Invalid padding at {offset}")
@@ -36,18 +39,18 @@ class GVASStrProperty(GVASProperty):
         offset += 1
         expected_offset = offset + size
         offset += 4
-        selfs: list[Self] = []
+        values: list[str] = []
         for _ in range(count):
-            self, offset = cls.parse(data, offset)
-            selfs.append(self)
+            value, offset = cls.from_bytes(data, offset)
+            values.append(value)
         if offset != expected_offset:
             raise ValueError(f"Invalid offset {offset}")
-        return selfs, offset
+        return values, offset
 
     @classmethod
     @final
     @override
-    def parse_full(cls, data: bytes, offset: int) -> tuple[Self, int]:
+    def from_bytes_full(cls, data: bytes, offset: int) -> tuple[str, int]:
         category, size, unit_width = struct.unpack_from("<IIB", data, offset)
         if category != 0:
             raise ValueError(f"Invalid category at {offset}")
@@ -59,38 +62,22 @@ class GVASStrProperty(GVASProperty):
             raise ValueError(f"Invalid unit width at {offset}")
         offset += 1
         expected_offset = offset + size
-        self, offset = cls.parse(data, offset)
+        value, bytes_read = read_string(data, offset)
+        offset += bytes_read
         if offset != expected_offset:
             raise ValueError(f"Invalid offset {offset}")
-        return self, offset
+        return value, offset
 
     @classmethod
     @final
     @override
-    def parse_set(cls, data: bytes, offset: int) -> tuple[list[Self], int]:
-        padding, size, unit_width, flag, count = struct.unpack_from("<IIBII", data, offset)
-        if padding != 0:
-            raise ValueError(f"Invalid padding at {offset}")
-        offset += 4
-        if size < 8:
-            raise ValueError(f"Invalid size at {offset}")
-        offset += 4
-        if unit_width != 0:
-            raise ValueError(f"Invalid unit width at {offset}")
-        offset += 1
-        expected_offset = offset + size
-        if flag != 0:
-            raise ValueError(f"Invalid flag at {offset}")
-        offset += 8
-        selfs: list[Self] = []
-        for _ in range(count):
-            self, offset = cls.parse(data, offset)
-            selfs.append(self)
-        if offset != expected_offset:
-            raise ValueError(f"Invalid offset {offset}")
-        return selfs, offset
+    def from_json_full(cls, data: str) -> bytes:
+        string_bytes = write_string(data)
+        return struct.pack("<IIB", 0, len(string_bytes), 0) + string_bytes
 
+    @classmethod
     @final
     @override
-    def to_json(self) -> str:
-        return self._value
+    def from_json_array(cls, data: list[str]) -> bytes:
+        string_data = write_string(*data)
+        return struct.pack("<IIBI", 0, len(string_data) + 4, 0, len(data)) + string_data

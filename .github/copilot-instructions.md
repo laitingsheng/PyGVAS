@@ -35,11 +35,6 @@ Python code formatting and style rules are handled by Ruff. Refer to the Ruff co
     3. Protected variables/methods (prefixed with `_`)
 *   **Lexicographical Sorting**: Sort variables and methods alphabetically within their respective groups.
 *   **Import Management**: Always strip unused imports from files.
-*   **Import Sorting**: Sort imports in the following order:
-    1. Standard library imports
-    2. Third-party library imports
-    3. Relative imports
-    Within each group, `import` statements should come before `from ... import` statements. Each import group should be separated by exactly one blank line. Additionally, when importing multiple symbols from a single module (e.g., `from module import A, B, C`), sort the imported symbols lexicographically.
 *   **Module Export Dependencies**: When exporting types from a module's `__init__.py`, ensure that any related types referenced by exported types are also exported. This includes base classes, metadata classes, and any other types that are part of the public API contract for the exported types.
 *   **Blank Line Formatting**: Each declaration block (functions, groups of variables, classes) should have exactly two blank lines in between. Other than this, a maximum of one blank line should be ensured. No blank line should be allowed after the initial line of function or class definition.
 *   **Slots Definition**: Always define `__slots__` for classes to optimise memory usage and attribute access.

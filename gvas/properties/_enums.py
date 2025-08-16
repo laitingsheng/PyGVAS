@@ -1,22 +1,21 @@
 from __future__ import annotations
 
 import struct
-from typing import ClassVar, Self, final, override
+from typing import ClassVar, final, override
 
-from ..utils import read_string
-from ._base import GVASProperty
-
-_REGISTRY: dict[str, type[GVASEnumProperty]] = {}
+from ..utils import read_string, write_string
+from ._base import GVASPropertySerde
 
 
-class GVASEnumProperty(GVASProperty):
-    __slots__ = ("_value",)
+_REGISTRY: dict[str, type[GVASEnumPropertySerde]] = {}
+
+
+class GVASEnumPropertySerde(GVASPropertySerde):
+    __slots__ = ()
 
     _BLUEPRINT: ClassVar[str]
     _NAME: ClassVar[str]
     _TYPE: ClassVar[str] = "Enum"
-
-    _value: str
 
     @override
     def __init_subclass__(cls) -> None:
@@ -32,7 +31,7 @@ class GVASEnumProperty(GVASProperty):
     @classmethod
     @final
     @override
-    def parse_full(cls, data: bytes, offset: int) -> tuple[Self, int]:
+    def from_bytes_full(cls, data: bytes, offset: int) -> tuple[str, int]:
         category, size, unit_width = struct.unpack_from("<IIB", data, offset)
         if category != 0:
             raise ValueError(f"Invalid category at {offset}")
@@ -46,20 +45,25 @@ class GVASEnumProperty(GVASProperty):
         value, bytes_read = read_string(data, offset)
         if not value.startswith(f"{cls._NAME}::"):
             raise ValueError(f"Invalid name at {offset}")
-        self = cls.__new__(cls)
-        self._value = value[len(cls._NAME) + 2 :]
-        return self, offset + bytes_read
+        return value[len(cls._NAME) + 2 :], offset + bytes_read
 
     @classmethod
     @final
     @override
-    def type_json(cls) -> dict[str, str]:
-        return super().type_json() | {"blueprint": cls._BLUEPRINT, "name": cls._NAME}
+    def from_json_full(cls, data: str) -> bytes:
+        string_bytes = write_string(f"{cls._NAME}::{data}")
+        return struct.pack("<IIB", 0, len(string_bytes), 0) + string_bytes
 
     @classmethod
     @final
     @override
-    def _concrete_type(cls, data: bytes, offset: int) -> tuple[type[GVASEnumProperty], int]:
+    def type_to_json(cls) -> dict[str, str]:
+        return super().type_to_json() | {"blueprint": cls._BLUEPRINT, "name": cls._NAME}
+
+    @classmethod
+    @final
+    @override
+    def _concrete_type_from_bytes(cls, data: bytes, offset: int) -> tuple[type[GVASEnumPropertySerde], int]:
         if struct.unpack_from("<I", data, offset)[0] != 2:
             raise ValueError(f"Invalid category at {offset}")
         offset += 4
@@ -67,8 +71,7 @@ class GVASEnumProperty(GVASProperty):
         if not name:
             raise ValueError(f"Invalid name at {offset}")
         offset += bytes_read
-        index = struct.unpack_from("<I", data, offset)[0]
-        if index != 1:
+        if struct.unpack_from("<I", data, offset)[0] != 1:
             raise ValueError(f"Invalid index at {offset}")
         offset += 4
         blueprint, bytes_read = read_string(data, offset)
@@ -83,17 +86,43 @@ class GVASEnumProperty(GVASProperty):
             raise ValueError(f"Invalid type at {offset}")
         offset += bytes_read
         fullpath = f"{blueprint}/{name}"
-        concrete_class = _REGISTRY.get(fullpath, None)
+        concrete_class = _REGISTRY.get(fullpath)
         if concrete_class is None:
             concrete_class = type(
-                f"GVASEnumProperty@{fullpath}",
-                (GVASEnumProperty,),
+                f"GVASEnumPropertySerde@{fullpath}",
+                (GVASEnumPropertySerde,),
                 {"__slots__": (), "_BLUEPRINT": blueprint, "_NAME": name},
             )
             _REGISTRY[fullpath] = concrete_class
         return concrete_class, offset
 
+    @classmethod
     @final
     @override
-    def to_json(self) -> str:
-        return self._value
+    def _concrete_type_from_json(cls, data: dict[str, str]) -> type[GVASEnumPropertySerde]:
+        blueprint = data["blueprint"]
+        name = data["name"]
+        fullpath = f"{blueprint}/{name}"
+        concrete_class = _REGISTRY.get(fullpath)
+        if concrete_class is None:
+            concrete_class = type(
+                f"GVASEnumPropertySerde@{fullpath}",
+                (GVASEnumPropertySerde,),
+                {"__slots__": (), "_BLUEPRINT": blueprint, "_NAME": name},
+            )
+            _REGISTRY[fullpath] = concrete_class
+        return concrete_class
+
+    @classmethod
+    @final
+    @override
+    def type_to_bytes(cls) -> bytes:
+        return (
+            super().type_to_bytes()
+            + struct.pack("<I", 2)
+            + write_string(cls._NAME)
+            + struct.pack("<I", 1)
+            + write_string(cls._BLUEPRINT)
+            + struct.pack("<I", 0)
+            + write_string("ByteProperty")
+        )

@@ -10,11 +10,13 @@ def read_string(data: bytes, offset: int) -> tuple[str, int]:
     return string_value, 4 + length
 
 
-def write_string(first: str, *rest: str) -> bytes:
+def write_string(*strings: str) -> bytes:
+    if not strings:
+        return b""
     formats, args = zip(
         *(
             (f"I{len(encoded)}sx" if encoded else "I", (len(encoded) + 1, encoded) if encoded else (0,))
-            for encoded in (value.encode("utf-8") for value in itertools.chain((first,), rest))
-        )
+            for encoded in (value.encode("utf-8") for value in strings)
+        ),
     )
     return struct.pack("<" + "".join(formats), *itertools.chain.from_iterable(args))

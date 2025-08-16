@@ -1,5 +1,5 @@
-import unittest
 import struct
+import unittest
 
 from ..utils import read_string, write_string
 

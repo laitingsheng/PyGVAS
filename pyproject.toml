@@ -11,4 +11,11 @@ line-length = 120
 indent-style = "space"
 line-ending = "lf"
 quote-style = "double"
-skip-magic-trailing-comma = true
+
+[tool.ruff.lint]
+extend-select = ["A", "COM", "N", "I", "Q", "RET", "RSE", "S", "SIM", "SLOT", "TC", "PTH"]
+
+[tool.ruff.lint.isort]
+case-sensitive = true
+combine-as-imports = true
+lines-after-imports = 2

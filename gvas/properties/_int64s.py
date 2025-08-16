@@ -1,20 +1,18 @@
 import struct
-from typing import ClassVar, Self, final, override
+from typing import ClassVar, final, override
 
-from ._base import GVASProperty
+from ._base import GVASPropertySerde
 
 
-class GVASInt64Property(GVASProperty):
-    __slots__ = ("_value",)
+class GVASInt64PropertySerde(GVASPropertySerde):
+    __slots__ = ()
 
     _TYPE: ClassVar[str] = "Int64"
-
-    _value: int
 
     @classmethod
     @final
     @override
-    def parse_full(cls, data: bytes, offset: int) -> tuple[Self, int]:
+    def from_bytes_full(cls, data: bytes, offset: int) -> tuple[int, int]:
         category, size, unit_width, value = struct.unpack_from("<IIBq", data, offset)
         if category != 0:
             raise ValueError(f"Invalid category at {offset}")
@@ -24,11 +22,10 @@ class GVASInt64Property(GVASProperty):
         offset += 4
         if unit_width != 0:
             raise ValueError(f"Invalid unit width at {offset}")
-        self = cls.__new__(cls)
-        self._value = value
-        return self, offset + 9
+        return value, offset + 9
 
+    @classmethod
     @final
     @override
-    def to_json(self) -> int:
-        return self._value
+    def from_json_full(cls, data: int) -> bytes:
+        return struct.pack("<IIBq", 0, 8, 0, data)

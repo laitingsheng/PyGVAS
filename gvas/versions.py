@@ -1,108 +1,94 @@
-from typing import Any, Self, final
 import itertools
 import struct
 import uuid
+from typing import Any, final, override
 
-from .utils import read_string
+from ._base import GVASSerde
+from .utils import read_string, write_string
 
 
-class GVASSaveVersion:
-    __slots__ = ("_major", "_minor", "_patch")
+@final
+class GVASSaveVersionSerde(GVASSerde):
+    __slots__ = ()
 
-    _major: int
-    _minor: int
-    _patch: int
-
-    @final
-    def __init__(self) -> None:
-        raise NotImplementedError(self.__class__.__name__)
-
-    @final
     @classmethod
-    def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
+    @final
+    @override
+    def from_bytes(cls, data: bytes, offset: int) -> tuple[dict[str, Any], int]:
         major, minor, patch = struct.unpack_from("<3I", data, offset)
-        self = cls.__new__(cls)
-        self._major = major
-        self._minor = minor
-        self._patch = patch
-        return self, offset + 12
+        return {"major": major, "minor": minor, "patch": patch}, offset + 12
 
-    @final
-    def to_json(self) -> dict[str, Any]:
-        return {"major": self._major, "minor": self._minor, "patch": self._patch}
-
-
-class GVASUEVersion:
-    __slots__ = ("_major", "_minor", "_patch", "_tweak", "_build", "_branch")
-
-    _major: int
-    _minor: int
-    _patch: int
-    _tweak: int
-    _build: int
-    _branch: str
-
-    @final
-    def __init__(self) -> None:
-        raise NotImplementedError(self.__class__.__name__)
-
-    @final
     @classmethod
-    def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
+    @final
+    @override
+    def from_json(cls, data: dict[str, Any]) -> bytes:
+        major = int(data["major"])
+        minor = int(data["minor"])
+        patch = int(data["patch"])
+        return struct.pack("<3I", major, minor, patch)
+
+
+@final
+class GVASUEVersionSerde(GVASSerde):
+    __slots__ = ()
+
+    @classmethod
+    @final
+    @override
+    def from_bytes(cls, data: bytes, offset: int) -> tuple[dict[str, Any], int]:
         major, minor, patch, tweak, build = struct.unpack_from("<5H", data, offset)
         offset += 10
         branch, bytes_read = read_string(data, offset)
-        offset += bytes_read
-        self = cls.__new__(cls)
-        self._major = major
-        self._minor = minor
-        self._patch = patch
-        self._tweak = tweak
-        self._build = build
-        self._branch = branch
-        return self, offset
-
-    @final
-    def to_json(self) -> dict[str, Any]:
         return {
-            "major": self._major,
-            "minor": self._minor,
-            "patch": self._patch,
-            "tweak": self._tweak,
-            "build": self._build,
-            "branch": self._branch,
-        }
+            "major": major,
+            "minor": minor,
+            "patch": patch,
+            "tweak": tweak,
+            "build": build,
+            "branch": branch,
+        }, offset + bytes_read
 
-
-class GVASCustomVersions:
-    __slots__ = ("_versions",)
-
-    _versions: dict[uuid.UUID, int]
-
-    @final
-    def __init__(self) -> None:
-        raise NotImplementedError(self.__class__.__name__)
-
-    @final
     @classmethod
-    def parse(cls, data: bytes, offset: int) -> tuple[Self, int]:
-        customs_version, customs_count = struct.unpack_from("<2I", data, offset)
-        if customs_version != 3:
-            raise ValueError(f"Expected customs version 3, got {customs_version}")
-        offset += 8
-        self = cls.__new__(cls)
-        if customs_count > 0:
-            self._versions = {
-                uuid.UUID(bytes_le=custom_uuid): custom_version
-                for custom_uuid, custom_version in itertools.batched(
-                    struct.unpack_from("<" + "16sI" * customs_count, data, offset), 2
-                )
-            }
-            offset += 20 * customs_count
-        else:
-            self._versions = {}
-        return self, offset
-
     @final
-    def to_json(self) -> dict[str, Any]:
-        return {str(k): v for k, v in self._versions.items()}
+    @override
+    def from_json(cls, data: dict[str, Any]) -> bytes:
+        major = int(data["major"])
+        minor = int(data["minor"])
+        patch = int(data["patch"])
+        tweak = int(data["tweak"])
+        build = int(data["build"])
+        branch = str(data["branch"])
+        return struct.pack("<5H", major, minor, patch, tweak, build) + write_string(branch)
+
+
+@final
+class GVASCustomVersionsSerde(GVASSerde):
+    __slots__ = ()
+
+    @classmethod
+    @final
+    @override
+    def from_bytes(cls, data: bytes, offset: int) -> tuple[dict[str, Any], int]:
+        version, count = struct.unpack_from("<2I", data, offset)
+        if version != 3:
+            raise ValueError(f"Invalid version at {offset}")
+        offset += 8
+        if count < 1:
+            return {}, offset
+        return {
+            str(uuid.UUID(bytes_le=custom_uuid)): custom_version
+            for custom_uuid, custom_version in itertools.batched(
+                struct.unpack_from("<" + "16sI" * count, data, offset), 2,
+            )
+        }, offset + 20 * count
+
+    @classmethod
+    @final
+    @override
+    def from_json(cls, data: dict[str, Any]) -> bytes:
+        return struct.pack(
+            "<2I" + "16sI" * len(data),
+            3,
+            len(data),
+            *itertools.chain.from_iterable((uuid.UUID(k).bytes_le, int(v)) for k, v in data.items()),
+        )

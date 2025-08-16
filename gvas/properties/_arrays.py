@@ -1,29 +1,27 @@
 import struct
-from typing import Any, ClassVar, Self, Sequence, final, override
+from typing import Any, ClassVar, final, override
 
-from ._base import GVASProperty
+from ._base import GVASPropertySerde
 
 
-class GVASArrayProperty(GVASProperty):
-    __slots__ = ("_element_type", "_values")
+class GVASArrayPropertySerde(GVASPropertySerde):
+    __slots__ = ()
 
     _TYPE: ClassVar[str] = "Array"
-
-    _element_type: type[GVASProperty]
-    _values: Sequence[GVASProperty]
 
     @classmethod
     @final
     @override
-    def parse_full(cls, data: bytes, offset: int) -> tuple[Self, int]:
+    def from_bytes_full(cls, data: bytes, offset: int) -> tuple[dict[str, Any], int]:
         if struct.unpack_from("<I", data, offset)[0] != 1:
             raise ValueError(f"Invalid category at {offset}")
-        self = cls.__new__(cls)
-        self._element_type, offset = GVASProperty.parse_type(data, offset + 4)
-        self._values, offset = self._element_type.parse_array(data, offset)
-        return self, offset
+        element_type, offset = GVASPropertySerde.type_from_bytes(data, offset + 4)
+        values, offset = element_type.from_bytes_array(data, offset)
+        return {"type": element_type.type_to_json(), "values": values}, offset
 
+    @classmethod
     @final
     @override
-    def to_json(self) -> dict[str, Any]:
-        return {"element_type": self._element_type.type_json(), "values": [value.to_json() for value in self._values]}
+    def from_json_full(cls, data: dict[str, Any]) -> bytes:
+        element_type = GVASPropertySerde.type_from_json(data["type"])
+        return struct.pack("<I", 1) + element_type.type_to_bytes() + element_type.from_json_array(data["values"])
