@@ -6,7 +6,7 @@ import uuid
 from abc import abstractmethod
 from typing import Any, ClassVar, final, override
 
-from ..utils import read_string, write_string
+from ...utils import read_string, write_string
 from ._base import GVASPropertySerde
 
 

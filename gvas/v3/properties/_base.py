@@ -3,8 +3,8 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import Any, ClassVar, Self, final, override
 
-from .._base import GVASSerde
-from ..utils import read_string, write_string
+from ..._base import GVASSerde
+from ...utils import read_string, write_string
 
 
 _REGISTRY: dict[str, type[GVASPropertySerde]] = {}

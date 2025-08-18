@@ -1,7 +1,7 @@
 import struct
 from typing import Any, final, override
 
-from gvas.headers import GVASHeaderSerde
+from gvas.v3.headers import GVASHeaderSerde
 
 
 class ESHeaderSerde(GVASHeaderSerde):

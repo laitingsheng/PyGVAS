@@ -53,15 +53,12 @@ class GVASMapPropertySerde(GVASPropertySerde):
         key_type = GVASPropertySerde.type_from_json(data["key_type"])
         value_type = GVASPropertySerde.type_from_json(data["value_type"])
         values = data["values"]
-        body = b"".join(
-            key_type.from_json(key) + value_type.from_json(value)
-            for key, value in values
-        )
+        body = b"".join(key_type.from_json(key) + value_type.from_json(value) for key, value in values)
         return (
-            struct.pack("<I", 2) +
-            key_type.type_to_bytes() +
-            struct.pack("<I", 0) +
-            value_type.type_to_bytes() +
-            struct.pack("<IIBII", 0, len(body) + 8, 0, 0, len(values)) +
-            body
+            struct.pack("<I", 2)
+            + key_type.type_to_bytes()
+            + struct.pack("<I", 0)
+            + value_type.type_to_bytes()
+            + struct.pack("<IIBII", 0, len(body) + 8, 0, 0, len(values))
+            + body
         )

@@ -1,8 +1,8 @@
 import struct
 from typing import Any, final, override
 
-from gvas.headers import GVASHeaderSerde
 from gvas.utils import read_string, write_string
+from gvas.v3.headers import GVASHeaderSerde
 
 
 class ABFCommonHeaderSerde(GVASHeaderSerde):

@@ -1,7 +1,7 @@
 import struct
 from typing import ClassVar, final, override
 
-from ..utils import read_string, write_string
+from ...utils import read_string, write_string
 from ._base import GVASPropertySerde
 
 

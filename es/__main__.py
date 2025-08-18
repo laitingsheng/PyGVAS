@@ -3,10 +3,12 @@ import struct
 import sys
 from pathlib import Path
 
-from gvas.properties import GVASBlueprintStructPropertySerde
+from gvas.v3.properties import GVASBlueprintStructPropertySerde
 
 from ._headers import ESHeaderSerde
 
+
+__all__ = []
 
 entry, filename = sys.argv
 filepath = Path(filename).absolute()
@@ -35,6 +37,6 @@ else:
     body = GVASBlueprintStructPropertySerde.from_json(data["body"]) + struct.pack("<I", 0)
     data["header"]["bodysize"] = len(body)
     header = ESHeaderSerde.from_json(data["header"])
-    with filepath.with_suffix(".new.sav").open("wb") as f:
+    with filepath.with_suffix(".sav.new").open("wb") as f:
         f.write(header)
         f.write(body)

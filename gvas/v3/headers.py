@@ -1,7 +1,7 @@
 from typing import Any, override
 
-from ._base import GVASSerde
-from .utils import read_string, write_string
+from .._base import GVASSerde
+from ..utils import read_string, write_string
 from .versions import GVASCustomVersionsSerde, GVASSaveVersionSerde, GVASUEVersionSerde
 
 

@@ -3,14 +3,22 @@ import struct
 import sys
 from pathlib import Path
 
-from gvas.properties import GVASBlueprintStructPropertySerde
+from gvas.v3.properties import GVASBlueprintStructPropertySerde
 
 from ._headers import ABFCommonHeaderSerde, ABFPlayerHeaderSerde, ABFWorldHeaderSerde
 
 
-entry, mode, filename = sys.argv
-save_header_serde = {"player": ABFPlayerHeaderSerde, "world": ABFWorldHeaderSerde, "common": ABFCommonHeaderSerde}[mode]
+__all__ = []
+
+entry, filename = sys.argv
 filepath = Path(filename).absolute()
+filename = filepath.name
+if filename.startswith("Player_"):
+    save_header_serde = ABFPlayerHeaderSerde
+elif filename.startswith("WorldSave_"):
+    save_header_serde = ABFWorldHeaderSerde
+else:
+    save_header_serde = ABFCommonHeaderSerde
 exporting = {".sav": True, ".json": False}[filepath.suffix]
 if exporting:
     with filepath.open("rb") as f:
@@ -36,6 +44,6 @@ else:
     body = GVASBlueprintStructPropertySerde.from_json(data["body"]) + struct.pack("<I", 0)
     data["header"]["bodysize"] = len(body)
     header = save_header_serde.from_json(data["header"])
-    with filepath.with_suffix(".new.sav").open("wb") as f:
+    with filepath.with_suffix(".sav.new").open("wb") as f:
         f.write(header)
         f.write(body)
