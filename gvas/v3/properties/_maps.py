@@ -41,27 +41,24 @@ class GVASMapPropertySerde(GVASPropertySerde):
         if offset != expected_offset:
             raise ValueError(f"Invalid offset {offset}")
         return {
-            "key_type": key_type.type_to_json(),
-            "value_type": value_type.type_to_json(),
+            "key_type": key_type.type_to_dict(),
+            "value_type": value_type.type_to_dict(),
             "values": values,
         }, offset
 
     @classmethod
     @final
     @override
-    def from_json_full(cls, data: dict[str, Any]) -> bytes:
-        key_type = GVASPropertySerde.type_from_json(data["key_type"])
-        value_type = GVASPropertySerde.type_from_json(data["value_type"])
+    def from_dict_full(cls, data: dict[str, Any]) -> bytes:
+        key_type = GVASPropertySerde.type_from_dict(data["key_type"])
+        value_type = GVASPropertySerde.type_from_dict(data["value_type"])
         values = data["values"]
-        body = b"".join(
-            key_type.from_json(key) + value_type.from_json(value)
-            for key, value in values
-        )
+        body = b"".join(key_type.from_dict(key) + value_type.from_dict(value) for key, value in values)
         return (
-            struct.pack("<I", 2) +
-            key_type.type_to_bytes() +
-            struct.pack("<I", 0) +
-            value_type.type_to_bytes() +
-            struct.pack("<IIBII", 0, len(body) + 8, 0, 0, len(values)) +
-            body
+            struct.pack("<I", 2)
+            + key_type.type_to_bytes()
+            + struct.pack("<I", 0)
+            + value_type.type_to_bytes()
+            + struct.pack("<IIBII", 0, len(body) + 8, 0, 0, len(values))
+            + body
         )

@@ -1,7 +1,7 @@
 import struct
 from typing import Any, ClassVar, final, override
 
-from ..utils import read_string, write_string
+from ...utils import read_string, write_string
 from ._base import GVASPropertySerde
 
 
@@ -26,12 +26,12 @@ class GVASTextPropertySerde(GVASPropertySerde):
 
     @staticmethod
     @final
-    def _type_11_from_json(data: dict[str, str]) -> bytes:
+    def _type_11_from_dict(data: dict[str, str]) -> bytes:
         return write_string(data["table"], data["index"])
 
     @staticmethod
     @final
-    def _type_255_from_json(data: str) -> bytes:
+    def _type_255_from_dict(data: str) -> bytes:
         return write_string(data)
 
     @classmethod
@@ -59,7 +59,7 @@ class GVASTextPropertySerde(GVASPropertySerde):
     @classmethod
     @final
     @override
-    def from_json_full(cls, data: dict[str, Any]) -> bytes:
+    def from_dict_full(cls, data: dict[str, Any]) -> bytes:
         type_id = data["type"]
-        value_bytes = getattr(cls, f"_type_{type_id}_from_json")(data["value"])
+        value_bytes = getattr(cls, f"_type_{type_id}_from_dict")(data["value"])
         return struct.pack("<IIBIB", 0, len(value_bytes) + 5, 0, 0, type_id) + value_bytes

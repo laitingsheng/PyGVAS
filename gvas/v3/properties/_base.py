@@ -3,8 +3,8 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import Any, ClassVar, Self, final, override
 
-from .._base import GVASSerde
-from ..utils import read_string, write_string
+from ..._base import GVASSerde
+from ...utils import read_string, write_string
 
 
 _REGISTRY: dict[str, type[GVASPropertySerde]] = {}
@@ -23,8 +23,8 @@ class GVASPropertySerde(GVASSerde):
 
     @staticmethod
     @final
-    def type_from_json(data: dict[str, str]) -> type[GVASPropertySerde]:
-        return _REGISTRY[data["type"]]._concrete_type_from_json(data)
+    def type_from_dict(data: dict[str, str]) -> type[GVASPropertySerde]:
+        return _REGISTRY[data["type"]]._concrete_type_from_dict(data)
 
     @override
     def __init_subclass__(cls) -> None:
@@ -54,17 +54,17 @@ class GVASPropertySerde(GVASSerde):
 
     @classmethod
     @abstractmethod
-    def from_json_array(cls, data: list[Any]) -> bytes:
+    def from_dict_array(cls, data: list[Any]) -> bytes:
         raise NotImplementedError(cls.__name__)
 
     @classmethod
     @abstractmethod
-    def from_json_full(cls, data: Any) -> bytes:
+    def from_dict_full(cls, data: Any) -> bytes:
         raise NotImplementedError(cls.__name__)
 
     @classmethod
     @abstractmethod
-    def from_json_set(cls, data: list[Any]) -> bytes:
+    def from_dict_set(cls, data: list[Any]) -> bytes:
         raise NotImplementedError(cls.__name__)
 
     @classmethod
@@ -72,7 +72,7 @@ class GVASPropertySerde(GVASSerde):
         return write_string(f"{cls._TYPE}Property")
 
     @classmethod
-    def type_to_json(cls) -> dict[str, str]:
+    def type_to_dict(cls) -> dict[str, str]:
         return {"type": f"{cls._TYPE}Property"}
 
     @classmethod
@@ -80,5 +80,5 @@ class GVASPropertySerde(GVASSerde):
         return cls, offset
 
     @classmethod
-    def _concrete_type_from_json(cls, data: dict[str, str]) -> type[Self]:
+    def _concrete_type_from_dict(cls, data: dict[str, str]) -> type[Self]:
         return cls

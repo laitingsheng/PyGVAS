@@ -55,11 +55,11 @@ class GVASBoolPropertySerde(GVASPropertySerde):
 
     @classmethod
     @override
-    def from_json_array(cls, data: list[bool]) -> bytes:
+    def from_dict_array(cls, data: list[bool]) -> bytes:
         return struct.pack(f"<IIBI{len(data)}B", 0, len(data) + 4, 0, len(data), *(1 if b else 0 for b in data))
 
     @classmethod
     @final
     @override
-    def from_json_full(cls, data: bool) -> bytes:
+    def from_dict_full(cls, data: bool) -> bytes:
         return struct.pack("<IIB", 0, 0, 0x10 if data else 0)

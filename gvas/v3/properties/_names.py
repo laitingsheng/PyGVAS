@@ -1,7 +1,7 @@
 import struct
 from typing import ClassVar, final, override
 
-from ..utils import read_string, write_string
+from ...utils import read_string, write_string
 from ._base import GVASPropertySerde
 
 
@@ -20,7 +20,7 @@ class GVASNamePropertySerde(GVASPropertySerde):
     @classmethod
     @final
     @override
-    def from_json(cls, data: str) -> bytes:
+    def from_dict(cls, data: str) -> bytes:
         return write_string(data)
 
     @classmethod
@@ -99,19 +99,19 @@ class GVASNamePropertySerde(GVASPropertySerde):
     @classmethod
     @final
     @override
-    def from_json_full(cls, data: str) -> bytes:
+    def from_dict_full(cls, data: str) -> bytes:
         string_bytes = write_string(data)
         return struct.pack("<IIB", 0, len(string_bytes), 0) + string_bytes
 
     @classmethod
     @override
-    def from_json_array(cls, data: list[str]) -> bytes:
+    def from_dict_array(cls, data: list[str]) -> bytes:
         string_bytes = write_string(*data)
         return struct.pack("<IIBI", 0, len(string_bytes) + 4, 0, len(data)) + string_bytes
 
     @classmethod
     @final
     @override
-    def from_json_set(cls, data: list[str]) -> bytes:
+    def from_dict_set(cls, data: list[str]) -> bytes:
         string_data = write_string(*dict.fromkeys(data).keys())
         return struct.pack("<IIBII", 0, len(string_data) + 8, 0, 0, len(dict.fromkeys(data))) + string_data

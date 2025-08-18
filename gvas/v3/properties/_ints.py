@@ -18,7 +18,7 @@ class GVASIntPropertySerde(GVASPropertySerde):
     @classmethod
     @final
     @override
-    def from_json(cls, data: int) -> bytes:
+    def from_dict(cls, data: int) -> bytes:
         return struct.pack("<i", data)
 
     @classmethod
@@ -39,5 +39,5 @@ class GVASIntPropertySerde(GVASPropertySerde):
     @classmethod
     @final
     @override
-    def from_json_full(cls, data: int) -> bytes:
+    def from_dict_full(cls, data: int) -> bytes:
         return struct.pack("<IIBi", 0, 4, 0, data)
