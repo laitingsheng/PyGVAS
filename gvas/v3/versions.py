@@ -3,8 +3,8 @@ import struct
 import uuid
 from typing import Any, final, override
 
-from ._base import GVASSerde
-from .utils import read_string, write_string
+from .._base import GVASSerde
+from ..utils import read_string, write_string
 
 
 @final
@@ -21,7 +21,7 @@ class GVASSaveVersionSerde(GVASSerde):
     @classmethod
     @final
     @override
-    def from_json(cls, data: dict[str, Any]) -> bytes:
+    def from_dict(cls, data: dict[str, Any]) -> bytes:
         major = int(data["major"])
         minor = int(data["minor"])
         patch = int(data["patch"])
@@ -51,7 +51,7 @@ class GVASUEVersionSerde(GVASSerde):
     @classmethod
     @final
     @override
-    def from_json(cls, data: dict[str, Any]) -> bytes:
+    def from_dict(cls, data: dict[str, Any]) -> bytes:
         major = int(data["major"])
         minor = int(data["minor"])
         patch = int(data["patch"])
@@ -78,14 +78,15 @@ class GVASCustomVersionsSerde(GVASSerde):
         return {
             str(uuid.UUID(bytes_le=custom_uuid)): custom_version
             for custom_uuid, custom_version in itertools.batched(
-                struct.unpack_from("<" + "16sI" * count, data, offset), 2,
+                struct.unpack_from("<" + "16sI" * count, data, offset),
+                2,
             )
         }, offset + 20 * count
 
     @classmethod
     @final
     @override
-    def from_json(cls, data: dict[str, Any]) -> bytes:
+    def from_dict(cls, data: dict[str, Any]) -> bytes:
         return struct.pack(
             "<2I" + "16sI" * len(data),
             3,

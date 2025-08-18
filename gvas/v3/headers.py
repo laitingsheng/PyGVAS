@@ -1,7 +1,7 @@
 from typing import Any, override
 
-from ._base import GVASSerde
-from .utils import read_string, write_string
+from .._base import GVASSerde
+from ..utils import read_string, write_string
 from .versions import GVASCustomVersionsSerde, GVASSaveVersionSerde, GVASUEVersionSerde
 
 
@@ -27,11 +27,11 @@ class GVASHeaderSerde(GVASSerde):
 
     @classmethod
     @override
-    def from_json(cls, data: dict[str, Any]) -> bytes:
+    def from_dict(cls, data: dict[str, Any]) -> bytes:
         return (
             b"GVAS"
-            + GVASSaveVersionSerde.from_json(data["save_version"])
-            + GVASUEVersionSerde.from_json(data["ue_version"])
-            + GVASCustomVersionsSerde.from_json(data["custom_version"])
+            + GVASSaveVersionSerde.from_dict(data["save_version"])
+            + GVASUEVersionSerde.from_dict(data["ue_version"])
+            + GVASCustomVersionsSerde.from_dict(data["custom_version"])
             + write_string(data["blueprint"])
         )

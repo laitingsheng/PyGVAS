@@ -18,7 +18,7 @@ class GVASDoublePropertySerde(GVASPropertySerde):
     @classmethod
     @final
     @override
-    def from_json(cls, data: float) -> bytes:
+    def from_dict(cls, data: float) -> bytes:
         return struct.pack("<d", data)
 
     @classmethod
@@ -58,11 +58,11 @@ class GVASDoublePropertySerde(GVASPropertySerde):
     @classmethod
     @final
     @override
-    def from_json_full(cls, data: float) -> bytes:
+    def from_dict_full(cls, data: float) -> bytes:
         return struct.pack("<IIBd", 0, 8, 0, data)
 
     @classmethod
     @final
     @override
-    def from_json_array(cls, data: list[float]) -> bytes:
+    def from_dict_array(cls, data: list[float]) -> bytes:
         return struct.pack(f"<IIBI{len(data)}d", 0, len(data) * 8 + 4, 0, len(data), *data)

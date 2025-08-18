@@ -1,8 +1,10 @@
 import struct
 from typing import Any, final, override
 
-from gvas.headers import GVASHeaderSerde
+from gvas import GVASSave
 from gvas.utils import read_string, write_string
+from gvas.v3.headers import GVASHeaderSerde
+from gvas.v3.properties import GVASBlueprintStructPropertySerde
 
 
 class ABFCommonHeaderSerde(GVASHeaderSerde):
@@ -20,8 +22,15 @@ class ABFCommonHeaderSerde(GVASHeaderSerde):
     @classmethod
     @final
     @override
-    def from_json(cls, data: dict[str, Any]) -> bytes:
-        return super().from_json(data) + struct.pack("<B", 0)
+    def from_dict(cls, data: dict[str, Any]) -> bytes:
+        return super().from_dict(data) + struct.pack("<B", 0)
+
+
+class ABFCommonSave(GVASSave):
+    __slots__ = ()
+
+    _BODY_SERDE = GVASBlueprintStructPropertySerde
+    _HEADER_SERDE = ABFCommonHeaderSerde
 
 
 class ABFPlayerHeaderSerde(GVASHeaderSerde):
@@ -44,8 +53,15 @@ class ABFPlayerHeaderSerde(GVASHeaderSerde):
     @classmethod
     @final
     @override
-    def from_json(cls, data: dict[str, Any]) -> bytes:
-        return super().from_json(data) + struct.pack("<IIB", 1, data["bodysize"] + 1, 0)
+    def from_dict(cls, data: dict[str, Any]) -> bytes:
+        return super().from_dict(data) + struct.pack("<IIB", 1, data["bodysize"] + 1, 0)
+
+
+class ABFPlayerSave(GVASSave):
+    __slots__ = ()
+
+    _BODY_SERDE = GVASBlueprintStructPropertySerde
+    _HEADER_SERDE = ABFPlayerHeaderSerde
 
 
 class ABFWorldHeaderSerde(GVASHeaderSerde):
@@ -75,9 +91,16 @@ class ABFWorldHeaderSerde(GVASHeaderSerde):
     @classmethod
     @final
     @override
-    def from_json(cls, data: dict[str, Any]) -> bytes:
+    def from_dict(cls, data: dict[str, Any]) -> bytes:
         return (
-            super().from_json(data)
+            super().from_dict(data)
             + write_string("ABF_SAVE_VERSION")
             + struct.pack("<IIIB", 3, 1, data["bodysize"] + 1, 0)
         )
+
+
+class ABFWorldSave(GVASSave):
+    __slots__ = ()
+
+    _BODY_SERDE = GVASBlueprintStructPropertySerde
+    _HEADER_SERDE = ABFWorldHeaderSerde

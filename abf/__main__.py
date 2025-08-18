@@ -1,41 +1,20 @@
-import json
-import struct
 import sys
 from pathlib import Path
 
-from gvas.properties import GVASBlueprintStructPropertySerde
-
-from ._headers import ABFCommonHeaderSerde, ABFPlayerHeaderSerde, ABFWorldHeaderSerde
+from ._saves import ABFCommonSave, ABFPlayerSave, ABFWorldSave
 
 
-entry, mode, filename = sys.argv
-save_header_serde = {"player": ABFPlayerHeaderSerde, "world": ABFWorldHeaderSerde, "common": ABFCommonHeaderSerde}[mode]
+entry, filename = sys.argv
 filepath = Path(filename).absolute()
+filename = filepath.name
+if filename.startswith("Player_"):
+    save_class = ABFPlayerSave
+elif filename.startswith("WorldSave_"):
+    save_class = ABFWorldSave
+else:
+    save_class = ABFCommonSave
 exporting = {".sav": True, ".json": False}[filepath.suffix]
 if exporting:
-    with filepath.open("rb") as f:
-        data = f.read()
-    header, offset = save_header_serde.from_bytes(data, 0)
-    bodysize = header.get("bodysize", None)
-    if bodysize is None:
-        expected_offset = None
-    elif bodysize >= 4:
-        expected_offset = offset + bodysize
-    else:
-        raise ValueError(f"Invalid body size at {offset}")
-    body, offset = GVASBlueprintStructPropertySerde.from_bytes(data, offset)
-    if struct.unpack_from("<I", data, offset)[0] != 0:
-        raise ValueError(f"Invalid ending at {offset}")
-    if expected_offset is not None and offset + 4 != expected_offset:
-        raise ValueError(f"Invalid offset {offset}")
-    with filepath.with_suffix(".json").open("w", encoding="utf-8") as f:
-        json.dump({"header": header, "body": body}, f, indent=2)
+    save_class.from_binary_file(filepath).to_json_file(filepath.with_suffix(".json"))
 else:
-    with filepath.open("r", encoding="utf-8") as f:
-        data = json.load(f)
-    body = GVASBlueprintStructPropertySerde.from_json(data["body"]) + struct.pack("<I", 0)
-    data["header"]["bodysize"] = len(body)
-    header = save_header_serde.from_json(data["header"])
-    with filepath.with_suffix(".new.sav").open("wb") as f:
-        f.write(header)
-        f.write(body)
+    save_class.from_json_file(filepath).to_binary_file(filepath.with_suffix(".sav.new"))

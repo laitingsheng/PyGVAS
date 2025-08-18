@@ -272,4 +272,4 @@ $RECYCLE.BIN/
 ### Custom ###
 
 /*.json
-/*.sav
+*.sav

@@ -17,11 +17,11 @@ class GVASSetPropertySerde(GVASPropertySerde):
             raise ValueError(f"Invalid category at {offset}")
         element_type, offset = GVASPropertySerde.type_from_bytes(data, offset + 4)
         values, offset = element_type.from_bytes_set(data, offset)
-        return {"type": element_type.type_to_json(), "values": values}, offset
+        return {"type": element_type.type_to_dict(), "values": values}, offset
 
     @classmethod
     @final
     @override
-    def from_json_full(cls, data: dict[str, Any]) -> bytes:
-        element_type = GVASPropertySerde.type_from_json(data["type"])
-        return struct.pack("<I", 1) + element_type.type_to_bytes() + element_type.from_json_set(data["values"])
+    def from_dict_full(cls, data: dict[str, Any]) -> bytes:
+        element_type = GVASPropertySerde.type_from_dict(data["type"])
+        return struct.pack("<I", 1) + element_type.type_to_bytes() + element_type.from_dict_set(data["values"])

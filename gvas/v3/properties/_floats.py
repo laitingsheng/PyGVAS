@@ -27,5 +27,5 @@ class GVASFloatPropertySerde(GVASPropertySerde):
     @classmethod
     @final
     @override
-    def from_json_full(cls, data: float) -> bytes:
+    def from_dict_full(cls, data: float) -> bytes:
         return struct.pack("<IIBf", 0, 4, 0, data)

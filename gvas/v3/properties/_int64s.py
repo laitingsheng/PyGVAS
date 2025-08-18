@@ -27,5 +27,5 @@ class GVASInt64PropertySerde(GVASPropertySerde):
     @classmethod
     @final
     @override
-    def from_json_full(cls, data: int) -> bytes:
+    def from_dict_full(cls, data: int) -> bytes:
         return struct.pack("<IIBq", 0, 8, 0, data)

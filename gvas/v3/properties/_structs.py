@@ -6,7 +6,7 @@ import uuid
 from abc import abstractmethod
 from typing import Any, ClassVar, final, override
 
-from ..utils import read_string, write_string
+from ...utils import read_string, write_string
 from ._base import GVASPropertySerde
 
 
@@ -72,7 +72,7 @@ class GVASStructPropertySerde(GVASPropertySerde):
     @classmethod
     @final
     @override
-    def _concrete_type_from_json(cls, data: dict[str, str]) -> type[GVASStructPropertySerde]:
+    def _concrete_type_from_dict(cls, data: dict[str, str]) -> type[GVASStructPropertySerde]:
         blueprint = data["blueprint"]
         name = data["name"]
         guid = data.get("guid", "")
@@ -116,8 +116,8 @@ class GVASUniqueStructPropertySerde(GVASStructPropertySerde):
     @classmethod
     @final
     @override
-    def type_to_json(cls) -> dict[str, str]:
-        return super().type_to_json() | {"blueprint": cls._BLUEPRINT, "name": cls._NAME}
+    def type_to_dict(cls) -> dict[str, str]:
+        return super().type_to_dict() | {"blueprint": cls._BLUEPRINT, "name": cls._NAME}
 
     @classmethod
     @final
@@ -162,7 +162,7 @@ class GVASCoreDateTimeSerde(GVASUniqueStructPropertySerde):
     @classmethod
     @final
     @override
-    def from_json_full(cls, data: int) -> bytes:
+    def from_dict_full(cls, data: int) -> bytes:
         return struct.pack("<IIBQ", 0, 8, 8, data)
 
 
@@ -200,7 +200,7 @@ class GVASCoreGameplayTagContainerSerde(GVASUniqueStructPropertySerde):
     @classmethod
     @final
     @override
-    def from_json_full(cls, data: list[str]) -> bytes:
+    def from_dict_full(cls, data: list[str]) -> bytes:
         tag_bytes = write_string(*data)
         return struct.pack("<IIBI", 0, len(tag_bytes) + 4, 8, len(data)) + tag_bytes
 
@@ -252,13 +252,13 @@ class GVASCoreGUIDSerde(GVASUniqueStructPropertySerde):
     @classmethod
     @final
     @override
-    def from_json_full(cls, data: str) -> bytes:
+    def from_dict_full(cls, data: str) -> bytes:
         return struct.pack("<IIB16s", 0, 16, 8, uuid.UUID(data).bytes_le)
 
     @classmethod
     @final
     @override
-    def from_json_array(cls, data: list[str]) -> bytes:
+    def from_dict_array(cls, data: list[str]) -> bytes:
         return struct.pack(
             "<IIBI" + "16s" * len(data),
             0,
@@ -303,7 +303,7 @@ class GVASCoreSoftObjectPathSerde(GVASUniqueStructPropertySerde):
     @classmethod
     @final
     @override
-    def from_json_full(cls, data: dict[str, str]) -> bytes:
+    def from_dict_full(cls, data: dict[str, str]) -> bytes:
         body = write_string(data["blueprint"], data["name"], data["value"])
         return struct.pack("<IIB", 0, len(body), 8) + body
 
@@ -332,7 +332,7 @@ class GVASCoreTimespanSerde(GVASUniqueStructPropertySerde):
     @classmethod
     @final
     @override
-    def from_json_full(cls, data: int) -> bytes:
+    def from_dict_full(cls, data: int) -> bytes:
         return struct.pack("<IIBQ", 0, 8, 8, data)
 
 
@@ -371,7 +371,7 @@ class GVASCoreUniqueNetIDSerde(GVASUniqueStructPropertySerde):
     @classmethod
     @final
     @override
-    def from_json_full(cls, data: dict[str, str]) -> bytes:
+    def from_dict_full(cls, data: dict[str, str]) -> bytes:
         identifier = data["identifier"]
         body = struct.pack("<I", len(identifier) + 1) + write_string(data["source"], identifier)
         return struct.pack("<IIB", 0, len(body), 8) + body
@@ -425,13 +425,13 @@ class GVASCoreVectorSerde(GVASUniqueStructPropertySerde):
     @classmethod
     @final
     @override
-    def from_json_full(cls, data: dict[str, float]) -> bytes:
+    def from_dict_full(cls, data: dict[str, float]) -> bytes:
         return struct.pack("<IIB3d", 0, 24, 8, data["x"], data["y"], data["z"])
 
     @classmethod
     @final
     @override
-    def from_json_array(cls, data: list[dict[str, float]]) -> bytes:
+    def from_dict_array(cls, data: list[dict[str, float]]) -> bytes:
         return struct.pack(
             f"<IIBI{len(data) * 3}d",
             0,
@@ -468,7 +468,7 @@ class GVASCoreRotatorSerde(GVASUniqueStructPropertySerde):
     @classmethod
     @final
     @override
-    def from_json_full(cls, data: dict[str, float]) -> bytes:
+    def from_dict_full(cls, data: dict[str, float]) -> bytes:
         return struct.pack("<IIB3d", 0, 24, 8, data["x"], data["y"], data["z"])
 
 
@@ -498,7 +498,7 @@ class GVASCoreQuatSerde(GVASUniqueStructPropertySerde):
     @classmethod
     @final
     @override
-    def from_json_full(cls, data: dict[str, float]) -> bytes:
+    def from_dict_full(cls, data: dict[str, float]) -> bytes:
         return struct.pack("<IIB4d", 0, 32, 8, data["x"], data["y"], data["z"], data["w"])
 
 
@@ -530,7 +530,7 @@ class GVASBlueprintStructPropertySerde(GVASStructPropertySerde):
         while name != "None":
             property_type, offset = GVASPropertySerde.type_from_bytes(data, offset + bytes_read)
             value, offset = property_type.from_bytes_full(data, offset)
-            result[name] = {"type": property_type.type_to_json(), "value": value}
+            result[name] = {"type": property_type.type_to_dict(), "value": value}
             name, bytes_read = read_string(data, offset)
         return result, offset + bytes_read
 
@@ -576,8 +576,8 @@ class GVASBlueprintStructPropertySerde(GVASStructPropertySerde):
     @classmethod
     @final
     @override
-    def type_to_json(cls) -> dict[str, str]:
-        result = super().type_to_json() | {"blueprint": cls._BLUEPRINT, "name": cls._NAME}
+    def type_to_dict(cls) -> dict[str, str]:
+        result = super().type_to_dict() | {"blueprint": cls._BLUEPRINT, "name": cls._NAME}
         if cls._GUID:
             result["guid"] = cls._GUID
         return result
@@ -613,25 +613,25 @@ class GVASBlueprintStructPropertySerde(GVASStructPropertySerde):
     @classmethod
     @final
     @override
-    def from_json(cls, data: dict[str, dict[str, Any]]) -> bytes:
+    def from_dict(cls, data: dict[str, dict[str, Any]]) -> bytes:
         result = bytearray()
         for name, property_data in data.items():
             result.extend(write_string(name))
-            property_type = GVASPropertySerde.type_from_json(property_data["type"])
+            property_type = GVASPropertySerde.type_from_dict(property_data["type"])
             result.extend(property_type.type_to_bytes())
-            result.extend(property_type.from_json_full(property_data["value"]))
+            result.extend(property_type.from_dict_full(property_data["value"]))
         result.extend(write_string("None"))
         return bytes(result)
 
     @classmethod
     @final
     @override
-    def from_json_full(cls, data: dict[str, dict[str, Any]]) -> bytes:
-        body = cls.from_json(data)
+    def from_dict_full(cls, data: dict[str, dict[str, Any]]) -> bytes:
+        body = cls.from_dict(data)
         return struct.pack("<IIB", 0, len(body), 0) + body
 
     @classmethod
     @override
-    def from_json_array(cls, data: list[dict[str, dict[str, Any]]]) -> bytes:
-        result = b"".join(cls.from_json(item) for item in data)
+    def from_dict_array(cls, data: list[dict[str, dict[str, Any]]]) -> bytes:
+        result = b"".join(cls.from_dict(item) for item in data)
         return struct.pack("<IIBI", 0, len(result) + 4, 0, len(data)) + result
