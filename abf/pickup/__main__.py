@@ -19,7 +19,7 @@ output_folder = Path("output") / profile / name
 output_folder.mkdir(mode=0o755, parents=True, exist_ok=True)
 
 world_save_regex = re.compile(r"WorldSave_(\w+)\.sav")
-labels_regex = re.compile("|".join(map(re.escape, labels))) if len(labels) > 0 else None
+labels_regex = re.compile("|".join(map(re.escape, labels))) if labels else None
 
 real_saves = dict[str, tuple[dict[str, Any], dict[str, Any]]]()
 
@@ -39,7 +39,7 @@ picked_items = list[tuple[str, str, dict[str, Any]]]()
 for save_file in save_folder.glob("WorldSave_*.sav"):
     matches = world_save_regex.match(save_file.name)
     if matches is None:
-        raise ValueError(f"Invalid save file name: {save_file.name}")
+        raise ValueError(f"Invalid save file name {save_file.name}")
     with save_file.open("rb") as f:
         data = f.read()
     header, offset = ABFWorldHeaderSerde.from_bytes(data, 0)
