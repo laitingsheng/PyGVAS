@@ -1,7 +1,11 @@
 from typing import Any, Iterable
 from uuid import UUID
 
-from ._utils import create_changeable_data, create_cooking_data, create_datatable_row_handle
+from ._utils import (
+    create_changeable_data,
+    create_cooking_data,
+    create_datatable_row_handle,
+)
 
 
 def create_empty_item() -> dict[str, dict[str, Any]]:
@@ -29,6 +33,7 @@ def create_global_item(
     ammo: int | None = None,
     liquid: int = 0,
     variant: tuple[str, str] = ("", "None"),
+    made_string: str = "",
     tags: Iterable[str] = (),
     portions: int = 1,
 ) -> dict[str, dict[str, Any]]:
@@ -50,6 +55,7 @@ def create_global_item(
                 ammo=ammo,
                 liquid=liquid,
                 variant=variant,
+                made_string=made_string,
                 tags=tags,
                 portions=portions,
             ),
@@ -105,13 +111,13 @@ def create_plant_proxy(
     }
 
 
-def extract_proxy_item_asset_id(item: dict[str, dict[str, Any]]) -> UUID:
-    data = item.pop("ChangeableData_72_4C9675D849FC210B33DB648A3249A0E0").pop("value")
-    asset_id = data.pop("AssetID_25_06DB7A12469849D19D5FC3BA6BEDEEAB").pop("value")
-    return UUID(asset_id)
+# def extract_proxy_item_asset_id(item: dict[str, dict[str, Any]]) -> UUID:
+#     data = item.pop("ChangeableData_72_4C9675D849FC210B33DB648A3249A0E0").pop("value")
+#     asset_id = data.pop("AssetID_25_06DB7A12469849D19D5FC3BA6BEDEEAB").pop("value")
+#     return UUID(asset_id)
 
 
-def get_item_asset_id(item: dict[str, dict[str, Any]]) -> UUID | None:
-    data = item["ChangeableData_12_2B90E1F74F648135579D39A49F5A2313"]["value"]
-    asset_id = data["AssetID_25_06DB7A12469849D19D5FC3BA6BEDEEAB"]["value"]
-    return None if asset_id == "-1" else UUID(asset_id)
+# def get_item_asset_id(item: dict[str, dict[str, Any]]) -> UUID | None:
+#     data = item["ChangeableData_12_2B90E1F74F648135579D39A49F5A2313"]["value"]
+#     asset_id = data["AssetID_25_06DB7A12469849D19D5FC3BA6BEDEEAB"]["value"]
+#     return None if asset_id == "-1" else UUID(asset_id)

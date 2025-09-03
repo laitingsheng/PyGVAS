@@ -1,10 +1,155 @@
+import itertools
 from typing import Any
 
 from .._items import create_empty_item, create_global_item
 from .._utils import create_asset_id
 
 
-_EQUIPMENT_KEYS: dict[str, int] = {
+ALL_FISHES: tuple[str, ...] = (
+    "Antefish",
+    "Antefish_rare1",
+    "Portalfish",
+    "Portalfish_rare1",
+    "Portalfish_rare2",
+    "Portalfish_rare_torii",
+    "IS0098",
+    "IS0098_rare1",
+    "MoonFish",
+    "MoonFish_rare1",
+    "GemCrab",
+    "GemCrab_rare1",
+    "Fogfish",
+    "Fogfish_rare1",
+    "ReaperFish",
+    "ReaperFish_rare1",
+    "Eel",
+    "Eel_rare1",
+    "Eel_rare2",
+    "Eel_rare3",
+    "DarkwaterFish",
+    "DarkwaterFish_rare1",
+    "IceFish",
+    "IceFish_rare1",
+    "Radfish",
+    "Radfish_rare1",
+    "SilkFish",
+    "SilkFish_rare1",
+    "UmbraFish",
+    "UmbraFish_rare1",
+)
+
+ALL_KILL_TARGETS: tuple[str, ...] = (
+    "ElectroPest",
+    "Exor",
+    "ExorMonk",
+    "GKChieftain",
+    "GKHeavy",
+    "GKMage",
+    "GKWitch",
+    "Tarasque",
+    "Peccary",
+    "Pest",
+    "Pest_Volatile",
+)
+
+ALL_MAPS: tuple[str, ...] = (
+    "Map_Containment",
+    "Map_Dam",
+    "Map_Lab",
+    "Map_Labs",
+    "Map_MF",
+    "Map_Office1",
+    "Map_Office2",
+    "Map_Office3",
+    "Map_Pens",
+    "Map_Reactor",
+    "Map_Reactors",
+    "Map_Residence",
+    "Map_ResidenceTerribleMap",
+    "Map_Security",
+)
+
+ALL_POSITIVE_TRAITS: tuple[str, ...] = (
+    "Trait_Decathlon",
+    "Trait_WrinklyBrainmeat",
+    "Trait_NightOwl",
+    "Trait_Chef",
+    "Trait_Inconspicuous",
+    "Trait_FannyPack",
+    "Trait_SteelBladder",
+    "Trait_Strong",
+    "Trait_ThickSkinned",
+    "Trait_FirstAidCert",
+    "Trait_Gardener",
+    "Trait_LightEater",
+    "Trait_LeadBelly",
+    "Trait_Moist",
+    "Trait_SelfDefense",
+    "Trait_FormerGuard",
+    "Trait_Outdoorsman",
+    "Trait_Sundisk",
+)
+
+ALL_SOUP_RECIPES: tuple[str, ...] = (
+    "srecipe_anteversegumbo",
+    "srecipe_armandleg",
+    "srecipe_balanced",
+    "srecipe_carbdumplings",
+    "srecipe_cheesewheel",
+    "srecipe_creamycorn_raw",
+    "srecipe_creamytomato",
+    "srecipe_fishglue",
+    "srecipe_fishstew",
+    "srecipe_glacialgazpacho",
+    "srecipe_glue",
+    "srecipe_gooeymushroom_raw",
+    "srecipe_greyebchowder",
+    "srecipe_harmonyrice",
+    "srecipe_hearty",
+    "srecipe_inkyeggdrop",
+    "srecipe_lunarbisque",
+    "srecipe_mashedpotatoes",
+    "srecipe_meatrio",
+    "srecipe_meaty",
+    "srecipe_pasta_homey",
+    "srecipe_pea",
+    "srecipe_peccarygoulash",
+    "srecipe_peccmush",
+    "srecipe_peccnoodles",
+    "srecipe_pestgoulash",
+    "srecipe_pestgoulash_test",
+    "srecipe_poop",
+    "srecipe_potatosausage",
+    "srecipe_pumpkin",
+    "srecipe_radchowder",
+    "srecipe_ravioli_pumpkin_raw",
+    "srecipe_reservoir_reserve",
+    "srecipe_rice",
+    "srecipe_risotto",
+    "srecipe_silkyconsomme_raw",
+    "srecipe_simpletomato",
+    "srecipe_solder",
+    "srecipe_solder_test",
+    "srecipe_splitpea",
+    "srecipe_sugarslop",
+    "srecipe_supertomato",
+    "srecipe_sustenance",
+    "srecipe_sweetporridge",
+    "srecipe_veggie",
+    "srecipe_witchinghour_raw",
+)
+
+DEFAULT_EQUIPMENT: dict[str, dict[str, Any]] = {
+    "headlamp": {
+        "name": "headlamp_nvg_t2",
+        "liquid": 8,
+    },
+    "keypad": {
+        "name": "gatekey",
+    },
+}
+
+EQUIPMENT_KEYS: dict[str, int] = {
     "chest": 0,
     "helmet": 1,
     "legs": 2,
@@ -19,7 +164,7 @@ _EQUIPMENT_KEYS: dict[str, int] = {
     "trinket2": 11,
 }
 
-_EQUIPMENT_PRESETS: dict[int, dict[str, dict[str, Any]]] = {
+EQUIPMENT_PRESETS: dict[int, dict[str, dict[str, Any]]] = {
     1: {
         "helmet": {
             "name": "armor_helmet_mage",
@@ -53,17 +198,7 @@ _EQUIPMENT_PRESETS: dict[int, dict[str, dict[str, Any]]] = {
     },
 }
 
-_DEFAULT_EQUIPMENT: dict[str, dict[str, Any]] = {
-    "headlamp": {
-        "name": "headlamp_nvg_t2",
-        "liquid": 8,
-    },
-    "keypad": {
-        "name": "gatekey",
-    },
-}
-
-_HOTBAR_PRESETS: dict[int, dict[int, dict[str, Any]]] = {
+HOTBAR_PRESETS: dict[int, dict[int, dict[str, Any]]] = {
     1: {
         0: {
             "name": "smg_military_u2",
@@ -106,7 +241,7 @@ _HOTBAR_PRESETS: dict[int, dict[int, dict[str, Any]]] = {
     },
 }
 
-_INVENTORY_PRESETS: dict[int, dict[int, dict[str, Any]]] = {
+INVENTORY_PRESETS: dict[int, dict[int, dict[str, Any]]] = {
     1: {
         3: {
             "name": "backpack_jetpack",
@@ -133,7 +268,7 @@ _INVENTORY_PRESETS: dict[int, dict[int, dict[str, Any]]] = {
     },
 }
 
-_JOB_MAPPING: dict[str, str] = {
+JOB_MAPPING: dict[str, str] = {
     "Lab Assistant": "NoPhD",
     "Epimedical Bionomicist": "PhD_Medicine",
     "Trans-Kinematic Researcher": "PhD_HumanBio",
@@ -145,130 +280,50 @@ _JOB_MAPPING: dict[str, str] = {
     "Summer Intern": "Intern",
 }
 
-_JOB_PRESETS: dict[int, str] = {
+JOB_PRESETS: dict[int, str] = {
     1: "Defense Analyst",
 }
 
-_KILL_TARGETS = (
-    "ElectroPest",
-    "Exor",
-    "ExorMonk",
-    "GKChieftain",
-    "GKHeavy",
-    "GKMage",
-    "GKWitch",
-    "Tarasque",
-    "Peccary",
-    "Pest",
-    "Pest_Volatile",
+PREUNLOCKED_RECIPES: tuple[str, ...] = (
+    "recipe_taxidermy_electropest",
+    "recipe_taxidermy_pest",
+    "recipe_taxidermy_volatilepest",
+    "recipe_wallmount_exor",
+    "recipe_wallmount_exormonk",
+    "recipe_wallmount_peccary",
+    "recipe_wallmount_tarasque",
 )
 
 
 def improve_player(index: int, player: dict[str, dict[str, Any]]) -> None:
     items = player["EquipmentInventory_11_78EC662B493ED43BF306CD8FD82EA45A"]["value"]["values"]
-    items.extend(create_empty_item() for _ in range(len(_EQUIPMENT_KEYS) - len(items)))
-    for key, item in (_EQUIPMENT_PRESETS.get(index, {}) | _DEFAULT_EQUIPMENT).items():
-        items[_EQUIPMENT_KEYS[key]] = create_global_item(create_asset_id(), **item)
+    items.extend(create_empty_item() for _ in range(len(EQUIPMENT_KEYS) - len(items)))
+    for key, item in (EQUIPMENT_PRESETS.get(index, {}) | DEFAULT_EQUIPMENT).items():
+        items[EQUIPMENT_KEYS[key]] = create_global_item(create_asset_id(), **item)
 
     items = player["HotbarInventory_12_EB0E545B44BB772E1CCFCEBF8F0170A1"]["value"]["values"]
     items.extend(create_empty_item() for _ in range(10 - len(items)))
-    for key, item in _HOTBAR_PRESETS.get(index, {}).items():
+    for key, item in HOTBAR_PRESETS.get(index, {}).items():
         items[key] = create_global_item(create_asset_id(), **item)
 
     items = player["Inventory_8_758B207A48BE5E12B0022C91938F32BD"]["value"]["values"]
     locked = player["FavoritedSlots_125_BD14BA2A40F37FA19BC7C6816BCC3F3C"]["value"]["values"]
-    for key, item in _INVENTORY_PRESETS.get(index, {}).items():
+    for key, item in INVENTORY_PRESETS.get(index, {}).items():
         items[key] = create_global_item(create_asset_id(), **item)
         locked[key] = True
 
-    player["Traits_15_0039F2B34D2A43327122E9960B328E55"]["value"]["values"] = [
-        "Trait_Decathlon",
-        "Trait_WrinklyBrainmeat",
-        "Trait_NightOwl",
-        "Trait_Chef",
-        "Trait_Inconspicuous",
-        "Trait_FannyPack",
-        "Trait_SteelBladder",
-        "Trait_Strong",
-        "Trait_ThickSkinned",
-        "Trait_FirstAidCert",
-        "Trait_Gardener",
-        "Trait_LightEater",
-        "Trait_LeadBelly",
-        "Trait_Moist",
-        "Trait_SelfDefense",
-        "Trait_FormerGuard",
-        "Trait_Outdoorsman",
-        "Trait_Sundisk",
-    ]
+    player["Traits_15_0039F2B34D2A43327122E9960B328E55"]["value"]["values"] = list(ALL_POSITIVE_TRAITS)
 
-    job = _JOB_PRESETS.get(index)
+    job = JOB_PRESETS.get(index)
     if job is not None:
-        player["PhD_42_91C6570A451A177090EE25AF113045D2"]["value"] = _JOB_MAPPING[job]
+        player["PhD_42_91C6570A451A177090EE25AF113045D2"]["value"] = JOB_MAPPING[job]
 
     for skill in player["Skills_22_3287F93C42DD32FCD04E9E8295C6EDC3"]["value"]["values"]:
         skill["CurrentSkillXP_20_8F7934CD4A4542F036AE5C9649362556"]["value"] = 1e6
         skill["CurrentXPMultiplier_15_9DA8B8A24B4F5B134743CDBE828520F0"]["value"] = 1.0
 
     recipes = dict.fromkeys(player["RecipesUnlock_41_C6D066A3416620A76188D2A39E4D8DF9"]["value"]["values"])
-    recipes.update(
-        (recipe, None)
-        for recipe in [
-            "recipe_taxidermy_electropest",
-            "recipe_taxidermy_pest",
-            "recipe_taxidermy_volatilepest",
-            "recipe_wallmount_exor",
-            "recipe_wallmount_exormonk",
-            "recipe_wallmount_peccary",
-            "recipe_wallmount_tarasque",
-            "srecipe_anteversegumbo",
-            "srecipe_armandleg",
-            "srecipe_balanced",
-            "srecipe_carbdumplings",
-            "srecipe_cheesewheel",
-            "srecipe_creamycorn_raw",
-            "srecipe_creamytomato",
-            "srecipe_fishglue",
-            "srecipe_fishstew",
-            "srecipe_glacialgazpacho",
-            "srecipe_glue",
-            "srecipe_gooeymushroom_raw",
-            "srecipe_greyebchowder",
-            "srecipe_harmonyrice",
-            "srecipe_hearty",
-            "srecipe_inkyeggdrop",
-            "srecipe_lunarbisque",
-            "srecipe_mashedpotatoes",
-            "srecipe_meatrio",
-            "srecipe_meaty",
-            "srecipe_pasta_homey",
-            "srecipe_pea",
-            "srecipe_peccarygoulash",
-            "srecipe_peccmush",
-            "srecipe_peccnoodles",
-            "srecipe_pestgoulash",
-            "srecipe_pestgoulash_test",
-            "srecipe_poop",
-            "srecipe_potatosausage",
-            "srecipe_pumpkin",
-            "srecipe_radchowder",
-            "srecipe_ravioli_pumpkin_raw",
-            "srecipe_reservoir_reserve",
-            "srecipe_rice",
-            "srecipe_risotto",
-            "srecipe_silkyconsomme_raw",
-            "srecipe_simpletomato",
-            "srecipe_solder",
-            "srecipe_solder_test",
-            "srecipe_splitpea",
-            "srecipe_sugarslop",
-            "srecipe_supertomato",
-            "srecipe_sustenance",
-            "srecipe_sweetporridge",
-            "srecipe_veggie",
-            "srecipe_witchinghour_raw",
-        ]
-    )
+    recipes.update((recipe, None) for recipe in itertools.chain(ALL_SOUP_RECIPES, PREUNLOCKED_RECIPES))
     player["RecipesUnlock_41_C6D066A3416620A76188D2A39E4D8DF9"]["value"]["values"] = list(recipes.keys())
 
     player["CurrentMoney_85_7425E5BF43364C11279E4C8C26F5A7CA"] = {
@@ -286,22 +341,7 @@ def improve_player(index: int, player: dict[str, dict[str, Any]]) -> None:
             "type": {
                 "type": "NameProperty",
             },
-            "values": [
-                "Map_Containment",
-                "Map_Dam",
-                "Map_Lab",
-                "Map_Labs",
-                "Map_MF",
-                "Map_Office1",
-                "Map_Office2",
-                "Map_Office3",
-                "Map_Pens",
-                "Map_Reactor",
-                "Map_Reactors",
-                "Map_Residence",
-                "Map_ResidenceTerribleMap",
-                "Map_Security",
-            ],
+            "values": list(ALL_MAPS),
         },
     }
 
@@ -313,38 +353,7 @@ def improve_player(index: int, player: dict[str, dict[str, Any]]) -> None:
             "type": {
                 "type": "NameProperty",
             },
-            "values": [
-                "Antefish",
-                "Antefish_rare1",
-                "Portalfish",
-                "Portalfish_rare1",
-                "Portalfish_rare2",
-                "Portalfish_rare_torii",
-                "IS0098",
-                "IS0098_rare1",
-                "MoonFish",
-                "MoonFish_rare1",
-                "GemCrab",
-                "GemCrab_rare1",
-                "Fogfish",
-                "Fogfish_rare1",
-                "ReaperFish",
-                "ReaperFish_rare1",
-                "Eel",
-                "Eel_rare1",
-                "Eel_rare2",
-                "Eel_rare3",
-                "DarkwaterFish",
-                "DarkwaterFish_rare1",
-                "IceFish",
-                "IceFish_rare1",
-                "Radfish",
-                "Radfish_rare1",
-                "SilkFish",
-                "SilkFish_rare1",
-                "UmbraFish",
-                "UmbraFish_rare1",
-            ],
+            "values": list(ALL_FISHES),
         },
     }
 
@@ -356,7 +365,7 @@ def improve_player(index: int, player: dict[str, dict[str, Any]]) -> None:
             "type": {
                 "type": "NameProperty",
             },
-            "values": list(_KILL_TARGETS),
+            "values": list(ALL_KILL_TARGETS),
         },
     }
     player["Compendium_KillCount_137_580C4765460383FB00B3A0B49694B010"] = {
@@ -393,7 +402,7 @@ def improve_player(index: int, player: dict[str, dict[str, Any]]) -> None:
                         "value": 10000,
                     },
                 }
-                for target in _KILL_TARGETS
+                for target in ALL_KILL_TARGETS
             ],
         },
     }

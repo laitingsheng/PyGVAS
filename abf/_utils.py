@@ -1,4 +1,4 @@
-import secrets
+import random
 from typing import Any, Iterable
 from uuid import UUID
 
@@ -28,7 +28,7 @@ def create_datatable_row_handle(datatable: str, rowname: str) -> dict[str, Any]:
 
 
 def create_asset_id() -> UUID:
-    candidate = bytearray(secrets.token_bytes(16))
+    candidate = bytearray(random.randbytes(16))
     candidate[4] &= 0x4F
     candidate[4] |= 0x40
     return UUID(bytes=bytes(candidate))
@@ -40,6 +40,7 @@ def create_changeable_data(
     ammo: int | None = None,
     liquid: int = 0,
     variant: tuple[str, str] = ("", "None"),
+    made_string: str = "",
     tags: Iterable[str] = (),
     portions: int = 1,
     paint: int | None = None,
