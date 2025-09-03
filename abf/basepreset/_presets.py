@@ -48,19 +48,10 @@ REPLACE_TARGETS = {
     "deployed_container_wastebucket_c",
     "deployed_craftedchargingstation_c",
     "deployed_furniture_cabinet_vintage_c",
-    "deployed_furniture_craftedbed_c",
-    "deployed_furniture_craftedbed_t2_c",
-    "deployed_furniture_craftedbed_t3_c",
     "deployed_furniture_desk_executive_01_c",
     "deployed_furniture_desk_lab_01_c",
     "deployed_furniture_desk_lab_02_c",
     "deployed_furniture_desk_office_02_c",
-    "deployed_liquidcontainer_barrel_c",
-    "deployed_liquidcontainer_barrel_wood_c",
-    "deployed_liquidcontainer_cauldron_tech_c",
-    "deployed_watercooler_c",
-    "deployed_waterfilter_c",
-    "deployed_watertank_c",
     "deployed_container_armorylocker_c",
     "deployed_container_chest_vintage_c",
     "deployed_container_filingcabinet_small_c",
@@ -86,112 +77,7 @@ REPLACE_TARGETS = {
     "deployed_crate_hornate_c",
     "deployed_crate_hsecurity_c",
     "deployed_crate_hinquisitor_c",
-    "gardenplot_large_c",
-    "gardenplot_medium_c",
-    "gardenplot_small_c",
-    "gardenplot_smallround_c",
 }
-
-TARGET_IDENTIFIER = "Facility"
-
-DEPLOY_BEDS = [
-    (
-        {
-            "x": -17545.0,
-            "y": 11110.0,
-            "z": 1571.0,
-        },
-        "PZ0",
-        {
-            "y": 140.0,
-        },
-        {
-            0: (0, 0, 0),
-            1: (0, 1, 0),
-        },
-    ),
-]
-
-# 1 - water
-# 2 - feces
-# 3 - radioactive
-# 4 - molten
-# 6 - fuel, not sure where it is used, not available
-# 7 - vomit, seems to be a liquid in the character itself only, not available
-# 8 - electricity, not meant to be in a barrel
-# 9 - blood, seems to be only presented in IS-0013, not available
-# 11 - antejuice
-# 13 - tainted water, too common in nearly everywhere
-# 14 - soup, must be linked to a soup type
-# 15 - laser, not meant to be in a barrel
-# 16 - ink
-DEPLOY_BARRELS = [
-    (
-        {
-            "x": -15472.0,
-            "y": 9989.0,
-            "z": 1211.0,
-        },
-        "PZ180",
-        {
-            "x": -96.0,
-            "y": 78.0,
-        },
-        [
-            (11, (0, 0, 0), (1, 4, 1)),
-            (16, (0, 4, 0), (1, 1, 1)),
-            (1, (1, 0, 0), (1, 5, 1)),
-        ],
-    ),
-    (
-        {
-            "x": -18690.0,
-            "y": 10264.0,
-            "z": 1016.0,
-        },
-        "PZ0",
-        {
-            "x": 96.0,
-            "y": 78.0,
-        },
-        [
-            (1, (0, 0, 0), (1, 4, 1)),
-        ],
-    ),
-    (
-        {
-            "x": -18246.0,
-            "y": 9988.0,
-            "z": 1016.0,
-        },
-        "PZ90",
-        {
-            "x": -78.0,
-        },
-        [
-            (2, (0, 0, 0), (1, 1, 1)),
-            (3, (1, 0, 0), (1, 1, 1)),
-            (4, (2, 0, 0), (1, 1, 1)),
-            (1, (3, 0, 0), (2, 1, 1)),
-        ],
-    ),
-    (
-        {
-            "x": -18246.0,
-            "y": 10186.0,
-            "z": 1016.0,
-        },
-        "PZ270",
-        {
-            "x": -78.0,
-        },
-        [
-            (2, (0, 0, 0), (1, 1, 1)),
-            (3, (1, 0, 0), (1, 1, 1)),
-            (4, (2, 0, 0), (1, 1, 1)),
-        ],
-    ),
-]
 
 IGNORE_LABELS = {
     "Marker",
@@ -287,44 +173,6 @@ DEPLOY_STORAGES = [
     #         ("", (0, 0, 0), (1, 4, 4)),
     #     ],
     # },
-]
-
-DEPLOY_FARMS = [
-    (
-        {
-            "x": -16542.0,
-            "y": 11547.0,
-            "z": 1571,
-        },
-        "PZ270",
-        {
-            "x": -400.0,
-        },
-        {
-            (0, 0, 0): [
-                "Plant_Corn",
-                "Plant_Egg",
-                "Plant_Greyeb",
-                "Plant_Potato",
-            ] * 2,
-            (1, 0, 0): [
-                "Plant_Pumpkin",
-                "Plant_Rice",
-                "Plant_SpaceLettuce",
-                "Plant_Super_Tomato",
-            ] * 2,
-            (2, 0, 0): [
-                "Plant_Tomato",
-                "Plant_Wheat",
-                "Plant_GlowTulip",
-                "Plant_Nyxshade",
-            ] * 2,
-            (3, 0, 0): [
-                "Plant_RopePlant",
-                "Plant_VinePlant",
-            ] * 4,
-        },
-    ),
 ]
 
 # DEPLOY_FREEZERS = [

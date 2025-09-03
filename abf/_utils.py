@@ -40,6 +40,7 @@ def create_changeable_data(
     ammo: int | None = None,
     liquid: int = 0,
     variant: tuple[str, str] = ("", "None"),
+    made_string: str = "",
     tags: Iterable[str] = (),
     portions: int = 1,
     paint: int | None = None,

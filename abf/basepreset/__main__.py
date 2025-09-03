@@ -7,19 +7,15 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-from .._items import create_empty_item, create_plant_proxy
+from .._items import create_empty_item
 from .._objects import (
-    DEPLOYED_BARREL,
-    DEPLOYED_BED,
-    DEPLOYED_FARM,
-    DEPLOYED_STORAGE,
     create_object_inventory,
     deploy_facility_object,
     form_deployed_object_identifier,
-    get_object_asset_id,
     object_extract_inventories,
     object_extract_proxied_item_ids,
     object_fill,
+    object_get_asset_id,
     object_label,
     object_move,
     object_paint,
@@ -31,14 +27,10 @@ from .._objects import (
 from .._saves import ABFWorldSave
 from .._utils import create_asset_id, create_datatable_row_handle
 from ._presets import (
-    DEPLOY_BARRELS,
-    DEPLOY_BEDS,
-    DEPLOY_FARMS,
     DEPLOY_STORAGES,
     IGNORE_LABELS,
     PICKUP_TARGETS,
     REPLACE_TARGETS,
-    TARGET_IDENTIFIER,
 )
 
 
@@ -94,7 +86,7 @@ for save_file in save_folder.glob("WorldSave_*.sav"):
     deployed_object_map = save.body.get("DeployedObjectMap")
     if deployed_object_map is not None:
         for asset_id, deployed_object in deployed_object_map["value"]["values"]:
-            parsed_asset_id = get_object_asset_id(deployed_object)
+            parsed_asset_id = object_get_asset_id(deployed_object)
             if parsed_asset_id is None:
                 if asset_id in builtin_objects_identifiers:
                     raise ValueError(f"Duplicate built-in object ID {asset_id}")
@@ -181,126 +173,6 @@ for save_file in save_folder.glob("WorldSave_*.sav"):
 
 new_objects: dict[UUID, dict[str, dict[str, Any]]] = {}
 
-for index, (start, direction, spacing, locations) in enumerate(DEPLOY_BEDS):
-    sx = start["x"]
-    sy = start["y"]
-    sz = start["z"]
-    dx = spacing.get("x", 0.0)
-    dy = spacing.get("y", 0.0)
-    dz = spacing.get("z", 0.0)
-
-    for player_index, (ix, iy, iz) in locations.items():
-        px = sx + ix * dx
-        py = sy + iy * dy
-        pz = sz + iz * dz
-
-        def key(asset_id: UUID) -> float:
-            obj = all_deployed_objects[deployed_objects_identifiers[asset_id]][asset_id]
-            tp = obj["Transform_50_85E8B13D40141C9B1308F4BB943BD753"]["value"]["Translation"]["value"]
-            return math.dist((px, py, pz), (tp["x"], tp["y"], tp["z"]))
-
-        if candidates:
-            asset_id = min(candidates.keys(), key=key)
-            if asset_id in new_objects:
-                raise ValueError(f"Duplicate usage of liquid container {asset_id}")
-            del candidates[asset_id]
-            identifier = deployed_objects_identifiers.pop(asset_id)
-            deployed_object = all_deployed_objects[identifier].pop(asset_id)
-            updated_saves[identifier] = True
-            dropped_items.extend(object_extract_inventories(deployed_object))
-            unused_asset_ids.update(object_extract_proxied_item_ids(deployed_object))
-            object_fill(deployed_object, 0)
-            object_label(deployed_object, f"{players[player_index]}}}|!|{{")
-            object_move(deployed_object, px, py, pz, direction)
-            object_paint(deployed_object, 13)
-            object_rename(deployed_object, *DEPLOYED_BED)
-            object_repair(deployed_object)
-            object_set_tags(deployed_object, [])
-            object_set_variant(deployed_object, "", "None")
-        else:
-            asset_id = create_asset_id()
-            while asset_id in all_deployed_objects or asset_id in new_objects:
-                asset_id = create_asset_id()
-            deployed_object = deploy_facility_object(
-                asset_id,
-                *form_deployed_object_identifier(*DEPLOYED_BED, 0x7FFFFF00),
-                px,
-                py,
-                pz,
-                direction,
-                label=f"{players[player_index]}}}|!|{{",
-                paint=13,
-            )
-        new_objects[asset_id] = deployed_object
-
-for index, (start, direction, spacing, locations) in enumerate(DEPLOY_BARRELS):
-    sx = start["x"]
-    sy = start["y"]
-    sz = start["z"]
-    dx = spacing.get("x", 0.0)
-    dy = spacing.get("y", 0.0)
-    dz = spacing.get("z", 0.0)
-
-    for liquid, (six, siy, siz), (cx, cy, cz) in locations:
-        if liquid not in {1, 2, 3, 4, 11, 13, 16}:
-            raise ValueError(f"Invalid liquid content in {index}")
-        if cx < 0 or six < 0:
-            raise ValueError(f"Invalid x-axis in {index}")
-        if dx == 0.0 and (cx > 1 or six > 0):
-            raise ValueError(f"Spanning across x-axis is not supported in {index}")
-        if cy < 0 or siy < 0:
-            raise ValueError(f"Invalid y-axis in {index}")
-        if dy == 0.0 and (cy > 1 or siy > 0):
-            raise ValueError(f"Spanning across y-axis is not supported in {index}")
-        if cz < 0 or siz < 0:
-            raise ValueError(f"Invalid z-axis in {index}")
-        if dz == 0.0 and (cz > 1 or siz > 0):
-            raise ValueError(f"Spanning across z-axis is not supported in {index}")
-
-        for ix, iy, iz in itertools.product(range(cx), range(cy), range(cz)):
-            px = sx + (six + ix) * dx
-            py = sy + (siy + iy) * dy
-            pz = sz + (siz + iz) * dz
-
-            def key(asset_id: UUID) -> float:
-                obj = all_deployed_objects[deployed_objects_identifiers[asset_id]][asset_id]
-                tp = obj["Transform_50_85E8B13D40141C9B1308F4BB943BD753"]["value"]["Translation"]["value"]
-                return math.dist((px, py, pz), (tp["x"], tp["y"], tp["z"]))
-
-            if candidates:
-                asset_id = min(candidates.keys(), key=key)
-                if asset_id in new_objects:
-                    raise ValueError(f"Duplicate usage of liquid container {asset_id}")
-                del candidates[asset_id]
-                identifier = deployed_objects_identifiers.pop(asset_id)
-                deployed_object = all_deployed_objects[identifier].pop(asset_id)
-                updated_saves[identifier] = True
-                dropped_items.extend(object_extract_inventories(deployed_object))
-                unused_asset_ids.update(object_extract_proxied_item_ids(deployed_object))
-                object_fill(deployed_object, liquid)
-                object_label(deployed_object, "")
-                object_move(deployed_object, px, py, pz, direction)
-                object_paint(deployed_object, 13)
-                object_rename(deployed_object, *DEPLOYED_BARREL)
-                object_repair(deployed_object)
-                object_set_tags(deployed_object, [])
-                object_set_variant(deployed_object, "", "None")
-            else:
-                asset_id = create_asset_id()
-                while asset_id in all_deployed_objects or asset_id in new_objects:
-                    asset_id = create_asset_id()
-                deployed_object = deploy_facility_object(
-                    asset_id,
-                    *form_deployed_object_identifier(*DEPLOYED_BARREL, 0x7FFFFF00),
-                    px,
-                    py,
-                    pz,
-                    direction,
-                    liquid=liquid,
-                    paint=13,
-                )
-            new_objects[asset_id] = deployed_object
-
 label_storages: dict[str, list[dict[str, dict[str, Any]]]] = {}
 
 for index, (start, direction, spacing, locations) in enumerate(DEPLOY_STORAGES):
@@ -372,65 +244,6 @@ for index, (start, direction, spacing, locations) in enumerate(DEPLOY_STORAGES):
                 )
             new_objects[asset_id] = deployed_object
             label_storages.setdefault(label, []).append(deployed_object)
-
-for index, (start, direction, spacing, locations) in enumerate(DEPLOY_FARMS):
-    sx = start["x"]
-    sy = start["y"]
-    sz = start["z"]
-    dx = spacing.get("x", 0.0)
-    dy = spacing.get("y", 0.0)
-    dz = spacing.get("z", 0.0)
-
-    for (ix, iy, iz), plants in locations.items():
-        px = sx + ix * dx
-        py = sy + iy * dy
-        pz = sz + iz * dz
-
-        def key(asset_id: UUID) -> float:
-            obj = all_deployed_objects[deployed_objects_identifiers[asset_id]][asset_id]
-            tp = obj["Transform_50_85E8B13D40141C9B1308F4BB943BD753"]["value"]["Translation"]["value"]
-            return math.dist((px, py, pz), (tp["x"], tp["y"], tp["z"]))
-
-        if candidates:
-            asset_id = min(candidates.keys(), key=key)
-            if asset_id in new_objects:
-                raise ValueError(f"Duplicate usage of liquid container {asset_id}")
-            del candidates[asset_id]
-            identifier = deployed_objects_identifiers.pop(asset_id)
-            deployed_object = all_deployed_objects[identifier].pop(asset_id)
-            updated_saves[identifier] = True
-            dropped_items.extend(object_extract_inventories(deployed_object))
-            unused_asset_ids.update(object_extract_proxied_item_ids(deployed_object))
-            object_fill(deployed_object, 1)
-            object_label(deployed_object, "")
-            object_move(deployed_object, px, py, pz, direction)
-            object_paint(deployed_object, 13)
-            object_rename(deployed_object, *DEPLOYED_FARM)
-            object_repair(deployed_object)
-            object_set_tags(deployed_object, [])
-            object_set_variant(deployed_object, "", "None")
-        else:
-            asset_id = create_asset_id()
-            while asset_id in all_deployed_objects or asset_id in new_objects:
-                asset_id = create_asset_id()
-            deployed_object = deploy_facility_object(
-                asset_id,
-                *form_deployed_object_identifier(*DEPLOYED_FARM, 0x7FFFFF00),
-                px,
-                py,
-                pz,
-                direction,
-                liquid=1,
-                paint=13,
-            )
-        deployed_object["ItemProxies_149_E2E145CE4015C4EDFA89E2B0CE3F579A"]["value"]["values"] = [
-            create_plant_proxy(
-                index,
-                unused_asset_ids.pop() if unused_asset_ids else create_asset_id(),
-                plant,
-            ) for index, plant in enumerate(plants)
-        ]
-        new_objects[asset_id] = deployed_object
 
 print(f"Attempting to put {len(dropped_items)} dropped items into storages.")
 

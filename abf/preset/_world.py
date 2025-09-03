@@ -1,10 +1,15 @@
-from typing import Any
+import itertools
+from typing import Any, Iterable, Sequence
 from uuid import UUID
 
-from .._objects import get_object_asset_id
+from .._items import create_plant_proxy
+from .._objects import (
+    deploy_facility_object,
+    form_deployed_object_identifier,
+    object_get_asset_id,
+)
+from .._utils import create_asset_id
 
-
-TARGET_IDENTIFIER = "Facility"
 
 all_builtin_objects: dict[str, dict[str, dict[str, dict[str, Any]]]] = {}
 builtin_objects_identifiers: dict[str, str] = {}
@@ -12,7 +17,9 @@ all_deployed_objects: dict[str, dict[UUID, dict[str, dict[str, Any]]]] = {}
 deployed_objects_identifiers: dict[UUID, str] = {}
 
 
-def preprocess_objects(identifier: str, world: dict[str, dict[str, Any]]) -> None:
+def preprocess_objects(identifier: str, world: dict[str, dict[str, Any]], ignore: set[str]) -> bool:
+    updated = False
+
     deployed_object_map = world.get("DeployedObjectMap")
     if deployed_object_map is not None:
         if identifier in all_builtin_objects or identifier in all_deployed_objects:
@@ -20,7 +27,7 @@ def preprocess_objects(identifier: str, world: dict[str, dict[str, Any]]) -> Non
         builtin_objects = all_builtin_objects[identifier] = {}
         deployed_objects = all_deployed_objects[identifier] = {}
         for asset_id, deployed_object in deployed_object_map["value"]["values"]:
-            parsed_asset_id = get_object_asset_id(deployed_object)
+            parsed_asset_id = object_get_asset_id(deployed_object)
             if parsed_asset_id is None:
                 if asset_id in builtin_objects_identifiers:
                     raise ValueError(f"Duplicate built-in object ID {asset_id}")
@@ -29,10 +36,16 @@ def preprocess_objects(identifier: str, world: dict[str, dict[str, Any]]) -> Non
                 continue
             if asset_id != parsed_asset_id.hex.upper():
                 raise ValueError(f"Inconsistent asset ID in deployed object {asset_id}")
+            object_name = deployed_object["Class_77_84FAE6234D772064CD9B659BA5046B1C"]["value"]["reference"].lower()
+            if object_name in ignore:
+                updated = True
+                continue
             if parsed_asset_id in deployed_objects_identifiers:
                 raise ValueError(f"Duplicate deployed object ID {asset_id}")
             deployed_objects[parsed_asset_id] = deployed_object
             deployed_objects_identifiers[parsed_asset_id] = identifier
+
+    return updated
 
 
 all_wall_power_sockets: dict[str, dict[str, dict[str, dict[str, Any]]]] = {}
@@ -138,6 +151,181 @@ def prune_connections() -> dict[str, None]:
             updated_identifiers[identifier] = None
 
     return updated_identifiers
+
+
+def deploy_beds(
+    identifier: str,
+    paint: int,
+    players: list[str],
+    beds: Iterable[
+        tuple[
+            tuple[float, float, float],
+            tuple[float, float],
+            str,
+            dict[int, tuple[int, int]],
+        ]
+    ],
+) -> None:
+    for start, spacing, direction, locations in beds:
+        sx, sy, z = start
+        dx, dy = spacing
+        for player_index, (ix, iy) in locations.items():
+            if ix < 0:
+                raise ValueError(f"{player_index} has invalid x index {ix}")
+            if dx == 0.0 and ix > 0:
+                raise ValueError(f"{player_index} cannot span across x axis")
+            if iy < 0:
+                raise ValueError(f"{player_index} has invalid y index {iy}")
+            if dy == 0.0 and iy > 0:
+                raise ValueError(f"{player_index} cannot span across y axis")
+            x = sx + ix * dx
+            y = sy + iy * dy
+            asset_id = create_asset_id()
+            while asset_id in deployed_objects_identifiers:
+                asset_id = create_asset_id()
+            all_deployed_objects.setdefault(identifier, {})[asset_id] = deploy_facility_object(
+                asset_id,
+                *form_deployed_object_identifier(
+                    "Furniture",
+                    "Deployed_Furniture_CraftedBed_T2",
+                    0x7FFFFF00,
+                ),
+                x,
+                y,
+                z,
+                direction,
+                label=f"{players[player_index]}}}|!|{{",
+                paint=paint,
+            )
+
+
+def deploy_farms(
+    identifier: str,
+    paint: int,
+    farms: Iterable[
+        tuple[
+            tuple[float, float, float],
+            tuple[float, float],
+            str,
+            dict[tuple[int, int], Sequence[str]],
+        ]
+    ],
+) -> None:
+    for fi, (start, spacing, direction, locations) in enumerate(farms):
+        sx, sy, z = start
+        dx, dy = spacing
+        for li, ((ix, iy), plants) in enumerate(locations.items()):
+            if ix < 0:
+                raise ValueError(f"({fi}, {li}) has invalid x index {ix}")
+            if dx == 0.0 and ix > 0:
+                raise ValueError(f"({fi}, {li}) cannot span across x axis")
+            if iy < 0:
+                raise ValueError(f"({fi}, {li}) has invalid y index {iy}")
+            if dy == 0.0 and iy > 0:
+                raise ValueError(f"({fi}, {li}) cannot span across y axis")
+            if len(plants) > 8:
+                raise ValueError(f"({fi}, {li}) has too many plants")
+            x = sx + ix * dx
+            y = sy + iy * dy
+            asset_id = create_asset_id()
+            while asset_id in deployed_objects_identifiers:
+                asset_id = create_asset_id()
+            deployed_object = deploy_facility_object(
+                asset_id,
+                *form_deployed_object_identifier(
+                    "Farming",
+                    "GardenPlot_Large",
+                    0x7FFFFF00,
+                ),
+                x,
+                y,
+                z,
+                direction,
+                liquid=1,
+                made_string=",|,".join(itertools.repeat("0", len(plants))),
+                paint=paint,
+            )
+            deployed_object["ItemProxies_149_E2E145CE4015C4EDFA89E2B0CE3F579A"]["value"]["values"] = [
+                create_plant_proxy(index, create_asset_id(), plant) for index, plant in enumerate(plants)
+            ]
+            all_deployed_objects.setdefault(identifier, {})[asset_id] = deployed_object
+
+
+def deploy_liquid_containers(
+    identifier: str,
+    paint: int,
+    containers: Iterable[
+        tuple[
+            tuple[float, float, float],
+            tuple[float, float],
+            str,
+            tuple[int, int],
+            Sequence[int],
+        ]
+    ],
+) -> None:
+    for fi, (start, spacing, direction, dimensions, liquids) in enumerate(containers):
+        sx, sy, z = start
+        dx, dy = spacing
+        cx, cy = dimensions
+        if cx < 0:
+            raise ValueError(f"{fi} has invalid x dimension {cx}")
+        if dx == 0.0 and cx > 1:
+            raise ValueError(f"{fi} cannot span across x axis")
+        if cy < 0:
+            raise ValueError(f"{fi} has invalid y dimension {cy}")
+        if dy == 0.0 and cy > 1:
+            raise ValueError(f"{fi} cannot span across y axis")
+        if cx == 0 or cy == 0:
+            continue
+        coordinates = list(itertools.product(range(cx), range(cy)))
+        if len(liquids) != len(coordinates):
+            raise ValueError(f"{fi} liquids length mismatched")
+        for (ix, iy), liquid in zip(coordinates, liquids):
+            if liquid == 0:
+                continue
+            if liquid in {
+                6,  # fuel
+                7,  # vomit
+                9,  # blood
+            }:
+                raise ValueError(f"{fi} has non-usable liquid {liquid}")
+            if liquid in {
+                8,  # electricity
+                15,  # laser
+            }:
+                raise ValueError(f"{fi} has energy liquid {liquid}")
+            if liquid in {
+                14,  # soup
+            }:
+                raise ValueError(f"{fi} has liquid {liquid} that must have variant spec")
+            if liquid not in {
+                1,  # water
+                2,  # feces
+                3,  # radioactive
+                4,  # molten
+                11,  # antejuice
+                13,  # tainted water
+                16,  # ink
+            }:
+                raise ValueError(f"{fi} has unknown liquid {liquid}")
+            asset_id = create_asset_id()
+            while asset_id in deployed_objects_identifiers:
+                asset_id = create_asset_id()
+            all_deployed_objects[identifier][asset_id] = deploy_facility_object(
+                asset_id,
+                *form_deployed_object_identifier(
+                    "Furniture",
+                    "Deployed_LiquidContainer_Barrel",
+                    0x7FFFFF00,
+                ),
+                sx + ix * dx,
+                sy + iy * dy,
+                z,
+                direction,
+                liquid=liquid,
+                paint=paint,
+            )
 
 
 def write_attributes(identifier: str, world: dict[str, dict[str, Any]]) -> None:
