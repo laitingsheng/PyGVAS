@@ -64,7 +64,7 @@ class GVASSave:
         header = data.pop("header")
         body = data.pop("body")
         if data:
-            raise ValueError(f"Unknown keys in JSON: {", ".join(data.keys())}")
+            raise ValueError(f"Unknown keys in JSON: {', '.join(data.keys())}")
         self = cls.__new__(cls)
         self.header = header
         self.body = body

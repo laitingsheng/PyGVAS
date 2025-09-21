@@ -45,7 +45,7 @@ class GVASEnumPropertySerde(GVASPropertySerde):
         value, bytes_read = read_string(data, offset)
         if not value.startswith(f"{cls._NAME}::"):
             raise ValueError(f"Invalid name at {offset}")
-        return value[len(cls._NAME) + 2 :], offset + bytes_read
+        return value[len(cls._NAME) + 2:], offset + bytes_read
 
     @classmethod
     @final

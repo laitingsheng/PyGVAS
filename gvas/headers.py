@@ -1,8 +1,12 @@
 from typing import Any, override
 
-from .._base import GVASSerde
-from ..utils import read_string, write_string
-from .versions import GVASCustomVersionsSerde, GVASSaveVersionSerde, GVASUEVersionSerde
+from ._base import GVASSerde
+from .utils import read_string, write_string
+from .versions import (
+    GVASCustomVersionsSerde,
+    GVASSaveVersionSerde,
+    GVASUEVersionSerde,
+)
 
 
 class GVASHeaderSerde(GVASSerde):

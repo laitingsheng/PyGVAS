@@ -2,8 +2,8 @@ import struct
 from typing import Any, final, override
 
 from gvas import GVASSave
+from gvas.headers import GVASHeaderSerde
 from gvas.utils import read_string, write_string
-from gvas.v3.headers import GVASHeaderSerde
 from gvas.v3.properties import GVASBlueprintStructPropertySerde
 
 

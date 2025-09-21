@@ -3,29 +3,8 @@ import struct
 import uuid
 from typing import Any, final, override
 
-from .._base import GVASSerde
-from ..utils import read_string, write_string
-
-
-@final
-class GVASSaveVersionSerde(GVASSerde):
-    __slots__ = ()
-
-    @classmethod
-    @final
-    @override
-    def from_bytes(cls, data: bytes, offset: int) -> tuple[dict[str, Any], int]:
-        major, minor, patch = struct.unpack_from("<3I", data, offset)
-        return {"major": major, "minor": minor, "patch": patch}, offset + 12
-
-    @classmethod
-    @final
-    @override
-    def from_dict(cls, data: dict[str, Any]) -> bytes:
-        major = int(data["major"])
-        minor = int(data["minor"])
-        patch = int(data["patch"])
-        return struct.pack("<3I", major, minor, patch)
+from ._base import GVASSerde
+from .utils import read_string, write_string
 
 
 @final
@@ -93,3 +72,30 @@ class GVASCustomVersionsSerde(GVASSerde):
             len(data),
             *itertools.chain.from_iterable((uuid.UUID(k).bytes_le, int(v)) for k, v in data.items()),
         )
+
+
+@final
+class GVASSaveVersionSerde(GVASSerde):
+    __slots__ = ()
+
+    @classmethod
+    @final
+    @override
+    def from_bytes(cls, data: bytes, offset: int) -> tuple[dict[str, Any], int]:
+        major, minor, patch = struct.unpack_from("<3I", data, offset)
+        if major == 2:
+            return {"major": 2, "minor": minor}, offset + 8
+        if major == 3:
+            return {"major": 3, "minor": minor, "patch": patch}, offset + 12
+        raise ValueError(f"Unsupported save version {major}")
+
+    @classmethod
+    @final
+    @override
+    def from_dict(cls, data: dict[str, Any]) -> bytes:
+        major = int(data["major"])
+        if major == 2:
+            return struct.pack("<2I", 2, int(data["minor"]))
+        if major == 3:
+            return struct.pack("<3I", 3, int(data["minor"]), int(data["patch"]))
+        raise ValueError(f"Unsupported save version {major}")
